@@ -30,6 +30,10 @@ jobs:
         with: {repository: kotoba-lang/webgpu, path: webgpu}
       - uses: actions/checkout@v4
         with: {repository: kotoba-lang/atmosphere, path: atmosphere}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/org-w3-webgpu, path: org-w3-webgpu}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/expr, path: expr}
       - uses: DeLaGuardo/setup-clojure@13.4
         with:
           cli: latest
@@ -63,6 +67,10 @@ jobs:
         with: {repository: kotoba-lang/webgpu, path: webgpu}
       - uses: actions/checkout@v4
         with: {repository: kotoba-lang/atmosphere, path: atmosphere}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/org-w3-webgpu, path: org-w3-webgpu}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/expr, path: expr}
       - uses: DeLaGuardo/setup-clojure@13.4
         with:
           cli: latest
