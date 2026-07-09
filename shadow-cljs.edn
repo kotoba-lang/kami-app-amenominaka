@@ -4,4 +4,11 @@
   {:target     :browser
    :output-dir "public/js"
    :asset-path "/js"
-   :modules    {:m2-demo {:init-fn kotoba.amenominaka.render-demo/init!}}}}}
+   :modules    {:m2-demo {:init-fn kotoba.amenominaka.render-demo/init!}}}
+  ;; M4 investigation (ADR-2607100100 D6-b) — reusable perf-regression
+  ;; check, not throwaway; see test/render/verify_m4_stress.cljs.
+  :m4-stress-demo
+  {:target     :browser
+   :output-dir "public/js"
+   :asset-path "/js"
+   :modules    {:m4-stress-demo {:init-fn kotoba.amenominaka.render-stress-demo/init!}}}}}
