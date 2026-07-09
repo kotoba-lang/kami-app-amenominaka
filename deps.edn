@@ -16,7 +16,7 @@
         io.github.kotoba-lang/vegetation-scene   {:local/root "../kami-vegetation-scene"}
         io.github.kotoba-lang/terrain-scene      {:local/root "../kami-terrain-scene"}
         io.github.kotoba-lang/postfx-scene       {:local/root "../kami-postfx-scene"}
-        io.github.kotoba-lang/usd                {:local/root "../usd"}
+        io.github.kotoba-lang/usd                {:local/root "../org-openusd"}
         io.github.kotoba-lang/materialx          {:local/root "../materialx"}
         io.github.kotoba-lang/webgpu             {:local/root "../webgpu"}
         io.github.kotoba-lang/atmosphere         {:local/root "../atmosphere"}
