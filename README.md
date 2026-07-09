@@ -73,9 +73,50 @@ attrs on an `Environment` scope rather than fabricated geometry.
 not yet bound into the `.usda` stage (a documented gap, not a guessed
 UsdMtlx binding schema). glTF export is not implemented — M1 is USD-only.
 
-This is two slices of ADR-2607100100's Twinmotion-equivalent design (M0
-scene composition + M1 USD export, of M0–M4); M2 (3D scene render-IR on
-`kami-webgpu`) is not implemented yet.
+## Real-time render-IR (`kotoba.amenominaka.render-ir`, M2 of ADR-2607100100)
+
+Bridges a `compose` result into [`kotoba-lang/webgpu`](https://github.com/kotoba-lang/webgpu)'s
+`kami.webgpu.ir` render-IR — the EDN a REAL, already-working browser
+WebGPU executor (camera + shadow-mapped directional light + PBR
+instancing) consumes. **Correction to ADR-2607100100 D5's original
+premise**: `kotoba-lang/webgpu`'s renderer was NOT 2D/UI-only (that's
+`dom-gpu`, a different repo) — it's a real 3D renderer already; M2's
+actual new work was this EDN bridge, not the renderer.
+
+```clojure
+(require '[kotoba.amenominaka.render-ir :as render-ir])
+
+(def ir (render-ir/scene->render-ir scene))
+;; => {:globals {:sky {...} :eye [...] :target [...]} :instances [{:pos :color :size :yaw} ...]}
+```
+
+`ir/instance`'s box is **square-footprint only** (`:size [w h]` =
+footprint-width × height — confirmed from `kami.webgpu.ir`'s own source).
+Each `bim` axis-sweep element renders as a coarse massing block
+(footprint = the sweep's run length, height = the profile's height) —
+the same idiom `kami.webgpu.ir`'s own docstring uses for
+`;; a building`, a legitimate early-stage massing representation, not a
+mesh-accurate wall. brep/mesh-ref/no-geometry elements carry no
+positional data and are skipped, not faked. A terrain preset (if
+requested) adds one flat ground-plane instance tinted by the biome's
+palette. Vegetation/postfx are not bridged — no placement data exists for
+either in M0's scene EDN.
+
+**Verified in a real browser**, not just structurally: `public/m2-demo.html`
+(compiled via `shadow-cljs compile m2-demo`) composes the M0 sample
+scene, draws one real frame via `kami.webgpu/init!`+`draw!`, and
+`nbb -cp test/render test/render/verify_m2_render.cljs` drives a full
+(non-headless-shell) Chromium via Playwright — reusing the technique
+`kotoba-lang/wasm-webcomponent` proved in ADR-2607078000 Addendum 8,
+ported to nbb rather than copied as `.mjs` — to confirm `navigator.gpu`
+actually works and capture a screenshot. The captured screenshot shows a
+real shaded sky/ground/massing-block render, not a blank canvas.
+
+This is three slices of ADR-2607100100's Twinmotion-equivalent design
+(M0 scene composition + M1 USD export + M2 render-IR bridge, of M0–M4);
+M3 (`kami-app-amenominaka` extension-loader shell) is not implemented
+yet, and M2's interactive orbit/fly camera controls are not implemented
+(the render-IR carries a static framed camera only).
 
 ## Scope (R1.4 deliverable — mostly NOT implemented)
 
@@ -97,8 +138,8 @@ piece above is real.
 
 | | |
 |---|---|
-| Role | extension-loader identity: path reservation. Scene composition + USD export: implemented (M0/M1, ADR-2607100100) |
-| Tests | green (13 tests / 66 assertions: identity constants + scene composition + USD export) |
+| Role | extension-loader identity: path reservation. Scene composition + USD export + render-IR bridge: implemented (M0/M1/M2, ADR-2607100100) |
+| Tests | green (20 tests / 86 assertions: identity constants + scene composition + USD export + render-IR), plus a real-browser WebGPU smoke test (screenshot-verified) |
 | R1.4 extension loader | not implemented (upstream nor here) |
 
 ## Contract

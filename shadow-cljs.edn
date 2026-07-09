@@ -1,0 +1,7 @@
+{:deps  {:aliases [:cljs]}
+ :builds
+ {:m2-demo
+  {:target     :browser
+   :output-dir "public/js"
+   :asset-path "/js"
+   :modules    {:m2-demo {:init-fn kotoba.amenominaka.render-demo/init!}}}}}

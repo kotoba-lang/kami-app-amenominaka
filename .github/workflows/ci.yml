@@ -5,7 +5,70 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # :local/root sibling deps (ADR-2607100100 M0/M1/M2) — checked out one
+      # level above this repo, matching how west lays out orgs/kotoba-lang/*.
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/bim, path: ../bim}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/kami-atmosphere-scene, path: ../kami-atmosphere-scene}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/kami-vegetation-scene, path: ../kami-vegetation-scene}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/kami-terrain-scene, path: ../kami-terrain-scene}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/kami-postfx-scene, path: ../kami-postfx-scene}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/usd, path: ../usd}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/materialx, path: ../materialx}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/webgpu, path: ../webgpu}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/atmosphere, path: ../atmosphere}
       - uses: DeLaGuardo/setup-clojure@13.4
         with:
           cli: latest
       - run: clojure -M:test
+
+  # M2 (ADR-2607100100): real-browser WebGPU verification. macOS runner —
+  # ADR-2607078000 Addendum 8 found Linux/SwiftShader WebGPU unreliable
+  # (blank canvases, popErrorScope errors), macOS reliable (real
+  # Metal-backed GPU process, no special launch flags needed).
+  webgpu-smoke:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/bim, path: ../bim}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/kami-atmosphere-scene, path: ../kami-atmosphere-scene}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/kami-vegetation-scene, path: ../kami-vegetation-scene}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/kami-terrain-scene, path: ../kami-terrain-scene}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/kami-postfx-scene, path: ../kami-postfx-scene}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/usd, path: ../usd}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/materialx, path: ../materialx}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/webgpu, path: ../webgpu}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/atmosphere, path: ../atmosphere}
+      - uses: DeLaGuardo/setup-clojure@13.4
+        with:
+          cli: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npx playwright install chromium
+      - run: npx shadow-cljs compile m2-demo
+      - run: npx nbb -cp test/render test/render/verify_m2_render.cljs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: m2-render-screenshot
+          path: test/render/m2-render-screenshot.png
+          if-no-files-found: ignore
