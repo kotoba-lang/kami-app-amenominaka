@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v4
         with: {repository: kotoba-lang/kami-postfx-scene, path: kami-postfx-scene}
       - uses: actions/checkout@v4
-        with: {repository: kotoba-lang/usd, path: usd}
+        with: {repository: kotoba-lang/org-openusd, path: org-openusd}
       - uses: actions/checkout@v4
         with: {repository: kotoba-lang/materialx, path: materialx}
       - uses: actions/checkout@v4
@@ -74,7 +74,7 @@ jobs:
       - uses: actions/checkout@v4
         with: {repository: kotoba-lang/kami-postfx-scene, path: kami-postfx-scene}
       - uses: actions/checkout@v4
-        with: {repository: kotoba-lang/usd, path: usd}
+        with: {repository: kotoba-lang/org-openusd, path: org-openusd}
       - uses: actions/checkout@v4
         with: {repository: kotoba-lang/materialx, path: materialx}
       - uses: actions/checkout@v4
