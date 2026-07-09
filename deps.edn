@@ -21,7 +21,14 @@
         io.github.kotoba-lang/webgpu             {:local/root "../webgpu"}
         io.github.kotoba-lang/atmosphere         {:local/root "../atmosphere"}
         io.github.kotoba-lang/org-w3-webgpu      {:local/root "../org-w3-webgpu"}
-        io.github.kotoba-lang/expr               {:local/root "../expr"}}
+        io.github.kotoba-lang/expr               {:local/root "../expr"}
+        ;; M5 (ADR-2607100100): the org's default UI/UX design system
+        ;; (ADR-2607022800) — appkit is the only DIRECT dep needed; it
+        ;; transitively pulls kotoba-ui -> {shitsuke, liquid-glass-ui} via
+        ;; their own deps.edn :local/root chains (confirmed working
+        ;; end-to-end in murakumo-studio/local-manimani, both real deployed
+        ;; apps on this exact stack) — no need to list those three here too.
+        io.github.kotoba-lang/appkit             {:local/root "../appkit"}}
  :aliases
  {:test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner
@@ -32,4 +39,5 @@
          :main-opts ["-m" "clj-kondo.main" "--lint" "src" "test"
                      "--fail-level" "error"]}
   :cljs {:extra-paths ["src"]
-         :extra-deps  {thheller/shadow-cljs {:mvn/version "2.28.20"}}}}}
+         :extra-deps  {thheller/shadow-cljs {:mvn/version "2.28.20"}
+                       reagent/reagent {:mvn/version "1.2.0"}}}}}

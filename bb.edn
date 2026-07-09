@@ -1,0 +1,12 @@
+;; M5 (ADR-2607100100): babashka task for static CSS generation, same
+;; shape as murakumo-studio's bb.edn (ADR-2607022800 pattern).
+{:paths ["scripts"
+         ;; kotoba-ui CSS generation (bb ui-css) reads these design-system
+         ;; namespaces — all pure .cljc, babashka-safe, no build step.
+         "../shitsuke/src"
+         "../liquid-glass-ui/src"
+         "../css/src"]
+ :tasks
+ {ui-css
+  {:doc "Generate the static kotoba-ui (liquid-glass) CSS into public/vendor/."
+   :task (load-file "scripts/gen_kotoba_ui_css.clj")}}}

@@ -9,9 +9,10 @@ of the retiring Rust `kami-app-amenominaka` crate (ADR-2607010000).
 ADR-2605261800) still stands as the upstream-identity contract below —
 but the extension loader itself is now real. **`kotoba.amenominaka.scene`
 (M0), `kotoba.amenominaka.usd-export` (M1), `kotoba.amenominaka.render-ir`
-(M2), and the extension loader (`kotoba.amenominaka.application` +
-`kotoba.amenominaka.extension` + `kotoba.amenominaka.extensions`, M3) —
-all of ADR-2607100100 (`com-junkawasaki/root`) — are implemented.**
+(M2), the extension loader (`kotoba.amenominaka.application` +
+`kotoba.amenominaka.extension` + `kotoba.amenominaka.extensions`, M3), and
+the interactive UI shell (`kotoba.amenominaka.ui`, M5) — all of
+ADR-2607100100 (`com-junkawasaki/root`) — are implemented.**
 
 ## Scene composition (`kotoba.amenominaka.scene`, M0 of ADR-2607100100)
 
@@ -181,6 +182,82 @@ org's real Pregel-cell system is `kotodama`'s persistent-daemon catalog
 retired as a concept here, not deferred as a gap** — extensions have a
 real dependency-ordered lifecycle without it.
 
+## Interactive UI shell (`kotoba.amenominaka.ui`, M5 of ADR-2607100100)
+
+`public/shell.html` (compiled by shadow-cljs's `:shell` build,
+`kotoba.amenominaka.ui/init!`) is the first real interactive surface over
+M0–M2's pipeline — before M5 the only way to see a scene was a static
+single-frame demo page. It's built on the org's **default UI/UX design
+system** (ADR-2607022800): `shitsuke` (dual-render structure) +
+`liquid-glass-ui` (material skin) + `kotoba-ui` (single require point) +
+`appkit` (desktop binding — panels/toolbar/dropdowns, not touch/card-first,
+so `appkit` over `uikit`). This is DOM chrome (env panel, nav bar) around a
+`<canvas>` leaf that M2's `kami.webgpu` draws into directly — the same
+"DOM siblings around a canvas" shape as the pre-existing `kami-engine-hud`,
+since `liquid-glass-ui` is DOM-only by design (true in-canvas glass
+rendering, `liquid-glass.gpu`, is explicit future work upstream, confirmed
+absent by reading its own ADR/design docs before starting).
+
+**Environment controls**: four dropdowns (Weather/Terrain/Post FX/
+Vegetation) drive `kotoba.amenominaka.scene/compose` on every change,
+re-bridge through `kotoba.amenominaka.render-ir/scene->render-ir`, and
+redraw. Preset ids are the real shipped ones, read directly from each
+`kami-*-scene` repo's own EDN rather than guessed (weather: overcast/
+clear; terrain: plains/quarry/desert/tundra; vegetation: grass/fern/palm/
+conifer/bush/cactus/moss; postfx: nintendo/retro/final-fantasy/
+baminiku-character).
+
+**Orbit/zoom camera**: mouse-drag orbits, wheel zooms/dollies. Camera
+moves only `assoc-in` `:eye`/`:target` into the *existing* render-IR —
+`:instances` is never touched on a camera-only frame, so M4's
+instance-buffer cache (~40× at scale, `identical?`-keyed) stays hot during
+every drag/zoom frame; only an actual preset change rebuilds `:instances`
+and pays a fresh upload.
+
+**USD export**: an "Export USD" button wires M1's `usd-export/scene->usda`
+(using the *currently selected* presets) to a real browser download via
+`Blob`+`URL.createObjectURL`.
+
+**Two confirmed real `kotoba-ui` bugs, routed around, not patched
+upstream**: `menu-select` renders an uncontrolled `<select>`/`<option>`
+(no `:value`/`:key` React props — React would warn and the displayed value
+wouldn't track external state changes), and `button` has no `:on-click`
+support at all (only shitsuke's SSR `:act` contract, meaningless in a live
+CLJS app). `preset-select`/`btn` in `ui.cljs` are small hand-rolled
+controlled replacements with the *same DOM shape* (so the generated CSS
+still targets them) — the exact workaround, DOM-shape-preservation
+reasoning included, ported from `murakumo-studio/src/murakumo_studio/
+ui.cljs`'s real, independently-reproduced fix for the identical bugs.
+
+**Static CSS**: `scripts/gen_kotoba_ui_css.clj` (`bb ui-css`) calls
+`liquid-glass.tokens/css-variables`+`resolve-dark-tokens` and
+`liquid-glass.style/component-css` — pure functions over EDN rule data,
+no build step — and writes `public/vendor/kotoba-ui.css` (referenced via
+a plain `<link>`, not runtime-injected), same shape as `murakumo-studio`'s
+own CSS-gen script. This app is always-dark (a real-time 3D viewport has
+no light-mode use case), so Tier A tokens are emitted directly rather than
+gated on `prefers-color-scheme`.
+
+**Real-browser verification** (`nbb -cp test/render
+test/render/verify_m5_ui.cljs`) drives the actual compiled `shell.html` in
+a full (non-headless-shell) Chromium and asserts, against the live app —
+no mocks: the env panel's four `<select>`s + `#viewport` canvas exist
+after mount; a `#debug-state` DOM node (same idiom as M2/M4's `#out`,
+since WebGPU canvas pixel readback was found unreliable in this Chromium
+build) reflects the default preset state on load; driving a real
+`page.selectOption` on the weather dropdown actually flows through
+React's `onChange` → `recompute-scene!` and is reflected in
+`#debug-state` — concrete behavioral proof the controlled-select
+workaround works, not just that it compiles; dragging `#viewport` changes
+the rendered frame, compared via two real Chromium screenshots (not JS
+canvas readback); and no console errors were logged. One real,
+independently-confirmed bug was found and fixed by this verification
+itself: the harness's static test server (`test/render/lib/
+webgpu_harness.cljs`) had no `.css` MIME-type entry, so Chromium served
+`vendor/kotoba-ui.css` as `application/octet-stream` and silently refused
+to apply it as a stylesheet — fixed by adding `".css" "text/css;
+charset=utf-8"` to its `mime-types` map.
+
 ## Scope (R1.4 deliverable)
 
 The upstream README describes 5 reference-extension parities as the
@@ -206,10 +283,11 @@ genuine remaining gap.
 
 | | |
 |---|---|
-| Role | Scene composition + USD export + render-IR bridge + extension loader: all implemented (M0–M3, ADR-2607100100); M4 investigated + real fix landed upstream |
-| Tests | green (29 tests / 122 assertions), plus real-browser WebGPU smoke (screenshot-verified) + perf-regression checks, both green on GitHub Actions macOS |
+| Role | Scene composition + USD export + render-IR bridge + extension loader + interactive UI shell: all implemented (M0–M3 + M5, ADR-2607100100); M4 investigated + real fix landed upstream |
+| Tests | green (29 tests / 122 assertions), plus real-browser WebGPU smoke (screenshot-verified) + perf-regression checks + UI-shell interaction checks, all green on GitHub Actions macOS |
 | R1.4 extension loader | implemented (this repo); `omni.timeline` and `omni.replicator.core` parity remain out of scope/not implemented |
 | Perf | M2's CPU-authored instancing verified performant to 20k+ instances after the M4 fix landed in `kotoba-lang/webgpu` (was a real ~29fps wall at 15k instances before) |
+| UI/UX | M5: environment-preset controls + orbit/zoom camera + USD export, on the org's default `shitsuke`+`liquid-glass-ui`+`kotoba-ui`+`appkit` stack (ADR-2607022800), real-browser interaction-verified |
 
 ## Contract
 

@@ -34,6 +34,20 @@ jobs:
         with: {repository: kotoba-lang/org-w3-webgpu, path: org-w3-webgpu}
       - uses: actions/checkout@v4
         with: {repository: kotoba-lang/expr, path: expr}
+      # M5 (ADR-2607100100): the org's default UI/UX design system
+      # (ADR-2607022800) — appkit's own deps.edn resolves kotoba-ui via
+      # :local/root "../kotoba-ui", which in turn resolves shitsuke +
+      # liquid-glass-ui the same way, so all three need sibling checkouts
+      # too (liquid-glass-ui's own `css` dep is a :git/sha coordinate,
+      # resolved by tools.deps itself — no checkout needed for it here).
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/appkit, path: appkit}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/kotoba-ui, path: kotoba-ui}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/shitsuke, path: shitsuke}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/liquid-glass-ui, path: liquid-glass-ui}
       - uses: DeLaGuardo/setup-clojure@13.4
         with:
           cli: latest
@@ -71,9 +85,26 @@ jobs:
         with: {repository: kotoba-lang/org-w3-webgpu, path: org-w3-webgpu}
       - uses: actions/checkout@v4
         with: {repository: kotoba-lang/expr, path: expr}
+      # M5 (ADR-2607100100): see the `test` job above for why appkit/
+      # kotoba-ui/shitsuke/liquid-glass-ui need sibling checkouts here too
+      # (clojure -M:cljs resolves the same :local/root chain). `css` is
+      # additionally needed here (unlike the `test` job) because bb.edn's
+      # `:paths` resolves it as a local sibling for babashka's `bb ui-css`
+      # task — babashka doesn't do tools.deps git-coordinate resolution.
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/appkit, path: appkit}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/kotoba-ui, path: kotoba-ui}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/shitsuke, path: shitsuke}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/liquid-glass-ui, path: liquid-glass-ui}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/css, path: css}
       - uses: DeLaGuardo/setup-clojure@13.4
         with:
           cli: latest
+          bb: latest
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -99,3 +130,17 @@ jobs:
         working-directory: kami-app-amenominaka
       - run: npx nbb -cp test/render test/render/verify_m4_stress.cljs
         working-directory: kami-app-amenominaka
+      # M5 (ADR-2607100100): interactive UI shell real-browser verification
+      # (see test/render/verify_m5_ui.cljs docstring).
+      - run: bb ui-css
+        working-directory: kami-app-amenominaka
+      - run: npx shadow-cljs compile shell
+        working-directory: kami-app-amenominaka
+      - run: npx nbb -cp test/render test/render/verify_m5_ui.cljs
+        working-directory: kami-app-amenominaka
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: m5-ui-screenshot
+          path: kami-app-amenominaka/test/render/m5-ui-screenshot.png
+          if-no-files-found: ignore
