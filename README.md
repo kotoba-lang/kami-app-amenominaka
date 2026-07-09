@@ -118,6 +118,23 @@ real shaded sky/ground/massing-block render, not a blank canvas.
 M2's interactive orbit/fly camera controls are not implemented (the
 render-IR carries a static framed camera only).
 
+## Perf investigation (`kotoba.amenominaka.render-stress-demo`, M4 of ADR-2607100100)
+
+Before speculatively building `wgsl` `@compute` GPU-side instancing (the
+ADR's original M4 direction), `public/m4-stress-demo.html` +
+`nbb -cp test/render test/render/verify_m4_stress.cljs` measure whether
+M2's CPU-authored instancing actually hits a wall — a grid of N walls at
+several scales, drawn 60 real frames in a real browser, reporting
+avg/p95/max frame time. It found one: **the real wall was in
+`kotoba-lang/webgpu`'s `draw!`**, not a GPU capacity limit — it
+unconditionally re-sorted/re-marshaled/re-uploaded the entire instance
+buffer every frame even for a completely static scene. Fixed upstream
+(`kotoba-lang/webgpu`, instance-buffer caching keyed on `(:instances ir)`
+by reference) rather than pursuing `wgsl @compute`, which wouldn't have
+addressed this specific bottleneck. Measured improvement: 15,000
+instances 34.0ms→0.85ms/frame (~40×). This demo/harness is kept as a
+reusable perf-regression check, not a one-time throwaway.
+
 ## Extension loader (`kotoba.amenominaka.application`+`.extension`+`.extensions`, M3 of ADR-2607100100)
 
 The `application`/`extension` protocols are **ported forward from
@@ -189,9 +206,10 @@ genuine remaining gap.
 
 | | |
 |---|---|
-| Role | Scene composition + USD export + render-IR bridge + extension loader: all implemented (M0–M3, ADR-2607100100) |
-| Tests | green (29 tests / 122 assertions), plus a real-browser WebGPU smoke test (screenshot-verified, also green on GitHub Actions macOS) |
+| Role | Scene composition + USD export + render-IR bridge + extension loader: all implemented (M0–M3, ADR-2607100100); M4 investigated + real fix landed upstream |
+| Tests | green (29 tests / 122 assertions), plus real-browser WebGPU smoke (screenshot-verified) + perf-regression checks, both green on GitHub Actions macOS |
 | R1.4 extension loader | implemented (this repo); `omni.timeline` and `omni.replicator.core` parity remain out of scope/not implemented |
+| Perf | M2's CPU-authored instancing verified performant to 20k+ instances after the M4 fix landed in `kotoba-lang/webgpu` (was a real ~29fps wall at 15k instances before) |
 
 ## Contract
 

@@ -1,0 +1,96 @@
+(ns verify-m4-stress
+  "M4 investigation (ADR-2607100100 D6-b), run via nbb FROM THIS REPO'S
+  ROOT: nbb -cp test/render test/render/verify_m4_stress.cljs
+  Loads public/m4-stress-demo.html at several `?n=` instance-count
+  scales in a real (full, non-headless-shell) Chromium via Playwright,
+  reads the reported avg/p95/max frame time + fps from `#out`, and
+  prints one JSON line per scale so a real perf curve can be read off.
+  Reusable — re-run this after any change to the render-IR bridge or
+  to kotoba-lang/webgpu's executor to confirm performance didn't
+  regress, not just a one-time investigation script.
+
+  Uses a manual delay+evaluate poll for #out (`poll-out-text`), not
+  `lib.webgpu-harness/wait-for-out-text` (Playwright `waitForFunction`)
+  — that was found unreliable in this specific script during the
+  original M4 investigation (consistently returned the pre-completion
+  \"loading...\" text despite its predicate; root-caused to a stale
+  tools.deps `.cpcache` classpath cache pointing at an unpatched sibling
+  checkout during that investigation, not a `waitForFunction` bug per
+  se, but the plain poll loop proved reliable and is kept for both
+  robustness and consistency across re-runs)."
+  (:require ["node:path" :as path]
+            [lib.webgpu-harness :as harness]))
+
+(def public-dir (.join path (.cwd js/process) "public"))
+
+(def scales [10 100 1000 5000 8000 15000 20000])
+
+(defn- sleep [ms]
+  (js/Promise. (fn [resolve] (js/setTimeout resolve ms))))
+
+(defn- poll-out-text [page timeout]
+  (let [deadline (+ (js/Date.now) timeout)]
+    (letfn [(check []
+              (-> (.evaluate page "document.getElementById('out').textContent")
+                  (.then (fn [text]
+                           (cond
+                             (and text (not (.includes text "loading"))) text
+                             (> (js/Date.now) deadline) text
+                             :else (-> (sleep 200) (.then check)))))))]
+      (check))))
+
+(defn- run-scale [page base-url n]
+  (-> (.goto page (str base-url "/m4-stress-demo.html?n=" n "&frames=60") #js {:waitUntil "load"})
+      (.then (fn [] (poll-out-text page 30000)))
+      (.then (fn [out-text]
+               (try
+                 (js/JSON.parse out-text)
+                 (catch :default _ (clj->js {:n n :error out-text})))))))
+
+(defn- run-all-scales [page base-url scales]
+  (if (empty? scales)
+    (js/Promise.resolve [])
+    (-> (run-scale page base-url (first scales))
+        (.then (fn [result]
+                 (-> (run-all-scales page base-url (rest scales))
+                     (.then (fn [rest-results] (cons result rest-results)))))))))
+
+;; Regression guard, not just an investigation report: this instance
+;; count previously cost ~34ms/frame (the redundant per-frame re-sort/
+;; re-marshal/re-upload found + fixed in kotoba-lang/webgpu). 5ms gives
+;; generous CI-machine-variance headroom over the fixed ~0.9ms while
+;; still catching a real regression back to O(instance count) per frame.
+(def regression-check-n 15000)
+(def regression-check-max-avg-ms 5.0)
+
+(defn- check-regression! [results]
+  (when-let [r (some #(when (= (.-n %) regression-check-n) %) results)]
+    (when (> (.-avgFrameMs r) regression-check-max-avg-ms)
+      (println (str "REGRESSION: n=" regression-check-n " avgFrameMs=" (.-avgFrameMs r)
+                     " exceeds " regression-check-max-avg-ms "ms — kami-webgpu's draw! instance-buffer"
+                     " caching (ADR-2607100100 M4) may have regressed."))
+      (set! (.-exitCode js/process) 1))))
+
+(defn- verify-page [page base-url]
+  (-> (harness/check-webgpu-available page (str base-url "/m4-stress-demo.html?n=10&frames=1"))
+      (.then (fn [availability]
+               (if (.-available availability)
+                 (-> (run-all-scales page base-url scales)
+                     (.then (fn [results]
+                              (doseq [r results] (println (js/JSON.stringify r)))
+                              (check-regression! results))))
+                 (println (js/JSON.stringify (clj->js {:skipped true :reason (.-reason availability)}))))))))
+
+(defn- run-investigation [browser base-url]
+  (-> (.newPage browser)
+      (.then (fn [page] (verify-page page base-url)))))
+
+(defn -main []
+  (-> (harness/start-static-server public-dir)
+      (.then (fn [server]
+               (-> (harness/with-headless-browser
+                    (fn [browser] (run-investigation browser (.-baseUrl server))))
+                   (.then (fn [] ((.-close server)))))))
+      (.catch (fn [e] (js/console.error e) (set! (.-exitCode js/process) 1)))))
+
+(-main)

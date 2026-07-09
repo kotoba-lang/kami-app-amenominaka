@@ -91,3 +91,11 @@ jobs:
           name: m2-render-screenshot
           path: kami-app-amenominaka/test/render/m2-render-screenshot.png
           if-no-files-found: ignore
+      # M4 (ADR-2607100100 D6-b): perf-regression guard, not just a
+      # one-time investigation — fails if instance-buffer caching in
+      # kotoba-lang/webgpu's draw! regresses back to O(instance count)
+      # per-frame cost (see test/render/verify_m4_stress.cljs).
+      - run: npx shadow-cljs compile m4-stress-demo
+        working-directory: kami-app-amenominaka
+      - run: npx nbb -cp test/render test/render/verify_m4_stress.cljs
+        working-directory: kami-app-amenominaka
