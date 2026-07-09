@@ -1,12 +1,15 @@
 {:paths ["src"]
  ;; west checks this repo out as a sibling of orgs/kotoba-lang/{bim,scene,
  ;; kami-atmosphere-scene,kami-vegetation-scene,kami-terrain-scene,
- ;; kami-postfx-scene}, so relative :local/root resolves (ADR-2607100100 M0).
+ ;; kami-postfx-scene,usd,materialx}, so relative :local/root resolves
+ ;; (ADR-2607100100 M0/M1).
  :deps {io.github.kotoba-lang/bim                {:local/root "../bim"}
         io.github.kotoba-lang/atmosphere-scene   {:local/root "../kami-atmosphere-scene"}
         io.github.kotoba-lang/vegetation-scene   {:local/root "../kami-vegetation-scene"}
         io.github.kotoba-lang/terrain-scene      {:local/root "../kami-terrain-scene"}
-        io.github.kotoba-lang/postfx-scene       {:local/root "../kami-postfx-scene"}}
+        io.github.kotoba-lang/postfx-scene       {:local/root "../kami-postfx-scene"}
+        io.github.kotoba-lang/usd                {:local/root "../usd"}
+        io.github.kotoba-lang/materialx          {:local/root "../materialx"}}
  :aliases
  {:test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner

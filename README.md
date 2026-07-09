@@ -45,9 +45,37 @@ geometry payload is AABB-only (confirmed by reading its source) — it cannot
 stand in for architectural CAD/BIM import. See ADR-2607100100 Addendum
 (2026-07-09) for this correction against the original design.
 
-This is one slice of ADR-2607100100's Twinmotion-equivalent design (M0 of
-M0–M4); M1 (USD/glTF export) and M2 (3D scene render-IR on `kami-webgpu`)
-are not implemented yet.
+## USD export (`kotoba.amenominaka.usd-export`, M1 of ADR-2607100100)
+
+Exports a `compose` result to a viewable `.usda` (USD ASCII) text document,
+via [`kotoba-lang/usd`](https://github.com/kotoba-lang/usd)'s generic
+USDA-from-EDN emitter. No new rendering engine — open the output in
+Blender or any USD viewer.
+
+```clojure
+(require '[kotoba.amenominaka.usd-export :as usd-export])
+
+(spit "lodge.usda" (usd-export/scene->usda scene))
+(spit "default.mtlx" (usd-export/default-material-mtlx))
+```
+
+`bim`'s `ElementGeometry` (brep/axis-sweep/mesh-ref/none, carried on every
+`bim/element`) has no bridge in `bim` itself to real triangle data
+(confirmed by reading `bim.cljc` in full). This namespace computes a real
+box mesh only for the one case simple enough to do honestly without
+building a BREP tessellator — an axis-sweep element with a rectangle
+profile (the common wall/beam case) — and exports every other geometry
+kind as a plain `Xform` placeholder, not a faked mesh. Environment presets
+(atmosphere/vegetation/terrain/postfx) carry no placement/heightfield/
+instance data in M0's scene EDN, so they're recorded as `pr-str`'d custom
+attrs on an `Environment` scope rather than fabricated geometry.
+`materialx.core` produces one companion neutral-gray `.mtlx` document —
+not yet bound into the `.usda` stage (a documented gap, not a guessed
+UsdMtlx binding schema). glTF export is not implemented — M1 is USD-only.
+
+This is two slices of ADR-2607100100's Twinmotion-equivalent design (M0
+scene composition + M1 USD export, of M0–M4); M2 (3D scene render-IR on
+`kami-webgpu`) is not implemented yet.
 
 ## Scope (R1.4 deliverable — mostly NOT implemented)
 
@@ -69,8 +97,8 @@ piece above is real.
 
 | | |
 |---|---|
-| Role | extension-loader identity: path reservation. Scene composition: implemented (M0/ADR-2607100100) |
-| Tests | green (7 tests / 32 assertions: identity constants + scene composition) |
+| Role | extension-loader identity: path reservation. Scene composition + USD export: implemented (M0/M1, ADR-2607100100) |
+| Tests | green (13 tests / 66 assertions: identity constants + scene composition + USD export) |
 | R1.4 extension loader | not implemented (upstream nor here) |
 
 ## Contract
