@@ -1,15 +1,27 @@
 {:paths ["src"]
  ;; west checks this repo out as a sibling of orgs/kotoba-lang/{bim,scene,
  ;; kami-atmosphere-scene,kami-vegetation-scene,kami-terrain-scene,
- ;; kami-postfx-scene,usd,materialx}, so relative :local/root resolves
- ;; (ADR-2607100100 M0/M1).
+ ;; kami-postfx-scene,usd,materialx,webgpu,atmosphere,org-w3-webgpu,expr},
+ ;; so relative :local/root resolves (ADR-2607100100 M0/M1/M2).
+ ;; org-w3-webgpu + expr aren't required directly by this repo's own code —
+ ;; they're webgpu's OWN :local/root deps (org-w3-webgpu = the raw
+ ;; navigator.gpu binding kami.webgpu.cljs now calls through, ADR-2607051400;
+ ;; expr = kami.wgsl's shared infix-expression core, ADR-2607051500) and
+ ;; tools.deps resolves a :local/root's own :deps transitively, so they must
+ ;; be checkout-present too (a real CI break found+fixed this session: the
+ ;; local orgs/kotoba-lang/webgpu checkout was stale and didn't yet declare
+ ;; these when M2 was first implemented).
  :deps {io.github.kotoba-lang/bim                {:local/root "../bim"}
         io.github.kotoba-lang/atmosphere-scene   {:local/root "../kami-atmosphere-scene"}
         io.github.kotoba-lang/vegetation-scene   {:local/root "../kami-vegetation-scene"}
         io.github.kotoba-lang/terrain-scene      {:local/root "../kami-terrain-scene"}
         io.github.kotoba-lang/postfx-scene       {:local/root "../kami-postfx-scene"}
         io.github.kotoba-lang/usd                {:local/root "../usd"}
-        io.github.kotoba-lang/materialx          {:local/root "../materialx"}}
+        io.github.kotoba-lang/materialx          {:local/root "../materialx"}
+        io.github.kotoba-lang/webgpu             {:local/root "../webgpu"}
+        io.github.kotoba-lang/atmosphere         {:local/root "../atmosphere"}
+        io.github.kotoba-lang/org-w3-webgpu      {:local/root "../org-w3-webgpu"}
+        io.github.kotoba-lang/expr               {:local/root "../expr"}}
  :aliases
  {:test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner
@@ -18,4 +30,6 @@
          :exec-fn cognitect.test-runner.api/test}
   :lint {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2024.11.14"}}
          :main-opts ["-m" "clj-kondo.main" "--lint" "src" "test"
-                     "--fail-level" "error"]}}}
+                     "--fail-level" "error"]}
+  :cljs {:extra-paths ["src"]
+         :extra-deps  {thheller/shadow-cljs {:mvn/version "2.28.20"}}}}}

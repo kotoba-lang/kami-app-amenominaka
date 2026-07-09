@@ -1,3 +1,8 @@
 /.cpcache/
 /target/
 /out/
+/.shadow-cljs/
+/node_modules/
+/package-lock.json
+/public/js/
+/test/render/m2-render-screenshot.png

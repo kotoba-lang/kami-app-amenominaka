@@ -1,0 +1,15 @@
+{
+  "name": "kami-app-amenominaka",
+  "private": true,
+  "version": "0.1.0",
+  "description": "kotoba amenominaka app shell — M2 WebGPU render-IR browser smoke test (ADR-2607100100).",
+  "scripts": {
+    "compile:m2-demo": "shadow-cljs compile m2-demo",
+    "test:clj": "clojure -M:test"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "shadow-cljs": "^2.28.20",
+    "playwright": "^1.48.0"
+  }
+}

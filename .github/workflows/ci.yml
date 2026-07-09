@@ -4,8 +4,90 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+      # actions/checkout forbids `path:` escaping $GITHUB_WORKSPACE via `../`,
+      # so every repo (this one included) checks out as a DIRECT CHILD of
+      # $GITHUB_WORKSPACE — matching the sibling layout deps.edn's
+      # :local/root ("../bim" etc., relative to THIS repo's own checkout)
+      # needs, since $GITHUB_WORKSPACE/kami-app-amenominaka/../bim ==
+      # $GITHUB_WORKSPACE/bim (ADR-2607100100 M0/M1/M2).
       - uses: actions/checkout@v4
+        with: {path: kami-app-amenominaka}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/bim, path: bim}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/kami-atmosphere-scene, path: kami-atmosphere-scene}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/kami-vegetation-scene, path: kami-vegetation-scene}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/kami-terrain-scene, path: kami-terrain-scene}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/kami-postfx-scene, path: kami-postfx-scene}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/usd, path: usd}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/materialx, path: materialx}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/webgpu, path: webgpu}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/atmosphere, path: atmosphere}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/org-w3-webgpu, path: org-w3-webgpu}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/expr, path: expr}
       - uses: DeLaGuardo/setup-clojure@13.4
         with:
           cli: latest
       - run: clojure -M:test
+        working-directory: kami-app-amenominaka
+
+  # M2 (ADR-2607100100): real-browser WebGPU verification. macOS runner —
+  # ADR-2607078000 Addendum 8 found Linux/SwiftShader WebGPU unreliable
+  # (blank canvases, popErrorScope errors), macOS reliable (real
+  # Metal-backed GPU process, no special launch flags needed).
+  webgpu-smoke:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {path: kami-app-amenominaka}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/bim, path: bim}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/kami-atmosphere-scene, path: kami-atmosphere-scene}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/kami-vegetation-scene, path: kami-vegetation-scene}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/kami-terrain-scene, path: kami-terrain-scene}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/kami-postfx-scene, path: kami-postfx-scene}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/usd, path: usd}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/materialx, path: materialx}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/webgpu, path: webgpu}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/atmosphere, path: atmosphere}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/org-w3-webgpu, path: org-w3-webgpu}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/expr, path: expr}
+      - uses: DeLaGuardo/setup-clojure@13.4
+        with:
+          cli: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+        working-directory: kami-app-amenominaka
+      - run: npx playwright install chromium
+        working-directory: kami-app-amenominaka
+      - run: npx shadow-cljs compile m2-demo
+        working-directory: kami-app-amenominaka
+      - run: npx nbb -cp test/render test/render/verify_m2_render.cljs
+        working-directory: kami-app-amenominaka
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: m2-render-screenshot
+          path: kami-app-amenominaka/test/render/m2-render-screenshot.png
+          if-no-files-found: ignore
