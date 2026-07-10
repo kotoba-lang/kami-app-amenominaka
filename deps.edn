@@ -28,7 +28,11 @@
         ;; their own deps.edn :local/root chains (confirmed working
         ;; end-to-end in murakumo-studio/local-manimani, both real deployed
         ;; apps on this exact stack) — no need to list those three here too.
-        io.github.kotoba-lang/appkit             {:local/root "../appkit"}}
+        io.github.kotoba-lang/appkit             {:local/root "../appkit"}
+        ;; M7 (ADR-2607100100): glTF export. org-khronos-gltf's own deps.edn
+        ;; pulls org-khronos-glb via a :git/sha coordinate (not :local/root),
+        ;; so tools.deps resolves it itself — no sibling checkout needed here.
+        io.github.kotoba-lang/org-khronos-gltf   {:local/root "../org-khronos-gltf"}}
  :aliases
  {:test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner

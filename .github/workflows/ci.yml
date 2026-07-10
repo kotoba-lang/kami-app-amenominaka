@@ -48,6 +48,9 @@ jobs:
         with: {repository: kotoba-lang/shitsuke, path: shitsuke}
       - uses: actions/checkout@v4
         with: {repository: kotoba-lang/liquid-glass-ui, path: liquid-glass-ui}
+      # M7 (ADR-2607100100): glTF export.
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/org-khronos-gltf, path: org-khronos-gltf}
       - uses: DeLaGuardo/setup-clojure@13.4
         with:
           cli: latest
@@ -101,6 +104,14 @@ jobs:
         with: {repository: kotoba-lang/liquid-glass-ui, path: liquid-glass-ui}
       - uses: actions/checkout@v4
         with: {repository: kotoba-lang/css, path: css}
+      # M7 (ADR-2607100100): glTF export. org-khronos-glb is org-khronos-gltf's
+      # OWN :git/sha dep (tools.deps resolves it for `clojure -M:test` above),
+      # but nbb needs an explicit -cp entry pointing at a real checkout — see
+      # test/render/verify_m7_gltf.cljs's docstring.
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/org-khronos-gltf, path: org-khronos-gltf}
+      - uses: actions/checkout@v4
+        with: {repository: kotoba-lang/org-khronos-glb, path: org-khronos-glb}
       - uses: DeLaGuardo/setup-clojure@13.4
         with:
           cli: latest
@@ -144,3 +155,8 @@ jobs:
           name: m5-ui-screenshot
           path: kami-app-amenominaka/test/render/m5-ui-screenshot.png
           if-no-files-found: ignore
+      # M7 (ADR-2607100100): glTF export real-browser verification — clicks
+      # the real "Export glTF" button, captures the real download, parses it
+      # with org-khronos-gltf's own parser (see verify_m7_gltf.cljs docstring).
+      - run: npx nbb -cp "test/render:../org-khronos-gltf/src:../org-khronos-glb/src" test/render/verify_m7_gltf.cljs
+        working-directory: kami-app-amenominaka
