@@ -11,9 +11,9 @@ but the extension loader itself is now real. **`kotoba.amenominaka.scene`
 (M0), `kotoba.amenominaka.usd-export` (M1), `kotoba.amenominaka.render-ir`
 (M2), the extension loader (`kotoba.amenominaka.application` +
 `kotoba.amenominaka.extension` + `kotoba.amenominaka.extensions`, M3), the
-interactive UI shell (`kotoba.amenominaka.ui`, M5), and glTF export
-(`kotoba.amenominaka.gltf-export`, M7) — all of ADR-2607100100
-(`com-junkawasaki/root`) — are implemented.**
+interactive UI shell (`kotoba.amenominaka.ui`, M5), glTF export
+(`kotoba.amenominaka.gltf-export`, M7), and a second free-fly camera mode
+(M8) — all of ADR-2607100100 (`com-junkawasaki/root`) — are implemented.**
 
 ## Scene composition (`kotoba.amenominaka.scene`, M0 of ADR-2607100100)
 
@@ -277,7 +277,8 @@ moves only `assoc-in` `:eye`/`:target` into the *existing* render-IR —
 `:instances` is never touched on a camera-only frame, so M4's
 instance-buffer cache (~40× at scale, `identical?`-keyed) stays hot during
 every drag/zoom frame; only an actual preset change rebuilds `:instances`
-and pays a fresh upload.
+and pays a fresh upload. A second camera mode, free-fly, was added in M8
+— see below.
 
 **USD export**: an "Export USD" button wires M1's `usd-export/scene->usda`
 (using the *currently selected* presets) to a real browser download via
@@ -323,6 +324,38 @@ webgpu_harness.cljs`) had no `.css` MIME-type entry, so Chromium served
 to apply it as a stylesheet — fixed by adding `".css" "text/css;
 charset=utf-8"` to its `mime-types` map.
 
+## Free-fly camera (M8 of ADR-2607100100)
+
+A second camera mode alongside M5's orbit — WASD movement (relative to
+the current look direction, projected onto the horizontal plane so
+looking down while walking forward doesn't fly you into the ground) +
+Space/Shift for straight up/down + mouse-look, toggled with the
+"Camera: Orbit"/"Camera: Fly (WASD)" button. Needed **no new
+`kami.webgpu.ir`/`kami.webgpu` API** — `rig->camera` was always just one
+way to produce `:eye`/`:target`; `fly-eye-target` computes them directly
+from a `{:pos :yaw :pitch}` state the same way, so `apply-camera!` (and
+M4's instance-buffer cache) doesn't care which mode produced them.
+
+Movement is driven by a real `requestAnimationFrame` loop reading a set
+of currently-held keys (`fly-keys`), not per-keydown deltas — smooth and
+framerate-independent while a key is held, self-terminating when camera
+mode switches away. Toggling into fly mode hands off smoothly from
+wherever the orbit camera currently is (seeds `:pos`/`:yaw`/`:pitch` from
+the current `:eye`/`:target`, no jump cut).
+
+**Real-browser verification** (`test/render/verify_m8_fly_camera.cljs`):
+toggles to fly mode and back (both directions confirmed via
+`#debug-state`), holds a real `w` keydown for 600ms (Playwright's
+`page.keyboard.down`/`up` — genuine `keydown`/`keyup` events, not a
+synthetic state mutation) and confirms `:fly :pos` actually moved along
+the expected axis *and* the rendered frame visibly changed (two real
+Chromium screenshots, not JS canvas readback). Along the way this found
+a real timing bug the verification itself had to work around: React 18's
+automatic event-handler batching means a Reagent `:on-click` `swap!`
+doesn't necessarily flush to the DOM before Playwright's `.click()`
+promise resolves — the toggle-back assertion polls `#debug-state`
+instead of reading it exactly once immediately after the click.
+
 ## Scope (R1.4 deliverable)
 
 The upstream README describes 5 reference-extension parities as the
@@ -348,11 +381,11 @@ genuine remaining gap.
 
 | | |
 |---|---|
-| Role | Scene composition + USD/glTF export + render-IR bridge + extension loader + interactive UI shell: all implemented (M0–M3 + M5 + M7, ADR-2607100100); M4 investigated + real fix landed upstream |
-| Tests | green (35 tests / 151 assertions), plus real-browser WebGPU smoke (screenshot-verified) + perf-regression checks + UI-shell interaction checks + glTF-export download/parse checks, all green on GitHub Actions macOS |
+| Role | Scene composition + USD/glTF export + render-IR bridge + extension loader + interactive UI shell (orbit + free-fly camera): all implemented (M0–M3 + M5 + M7 + M8, ADR-2607100100); M4 investigated + real fix landed upstream |
+| Tests | green (35 tests / 151 assertions), plus real-browser WebGPU smoke (screenshot-verified) + perf-regression checks + UI-shell interaction checks + glTF-export download/parse checks + fly-camera movement checks, all green on GitHub Actions macOS |
 | R1.4 extension loader | implemented (this repo); `omni.timeline` and `omni.replicator.core` parity remain out of scope/not implemented |
 | Perf | M2's CPU-authored instancing verified performant to 20k+ instances after the M4 fix landed in `kotoba-lang/webgpu` (was a real ~29fps wall at 15k instances before) |
-| UI/UX | M5: environment-preset controls + orbit/zoom camera + USD/glTF export, on the org's default `shitsuke`+`liquid-glass-ui`+`kotoba-ui`+`appkit` stack (ADR-2607022800), real-browser interaction-verified |
+| UI/UX | M5+M8: environment-preset controls + orbit/free-fly cameras + USD/glTF export, on the org's default `shitsuke`+`liquid-glass-ui`+`kotoba-ui`+`appkit` stack (ADR-2607022800), real-browser interaction-verified |
 | Correctness | M6: the `MAX-INST`=16,384 silent-truncation gap is fixed (`kotoba-lang/webgpu`'s instance buffer now grows on demand); real-browser-verified no truncation at 20k instances with no perf regression |
 | Interop | M7: glTF export (`.glb`) alongside USD, sharing the same geometry-fidelity rule; real-browser-verified via a real download + `org-khronos-gltf`'s own parser round-trip |
 
