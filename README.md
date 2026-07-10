@@ -10,9 +10,10 @@ ADR-2605261800) still stands as the upstream-identity contract below —
 but the extension loader itself is now real. **`kotoba.amenominaka.scene`
 (M0), `kotoba.amenominaka.usd-export` (M1), `kotoba.amenominaka.render-ir`
 (M2), the extension loader (`kotoba.amenominaka.application` +
-`kotoba.amenominaka.extension` + `kotoba.amenominaka.extensions`, M3), and
-the interactive UI shell (`kotoba.amenominaka.ui`, M5) — all of
-ADR-2607100100 (`com-junkawasaki/root`) — are implemented.**
+`kotoba.amenominaka.extension` + `kotoba.amenominaka.extensions`, M3), the
+interactive UI shell (`kotoba.amenominaka.ui`, M5), and glTF export
+(`kotoba.amenominaka.gltf-export`, M7) — all of ADR-2607100100
+(`com-junkawasaki/root`) — are implemented.**
 
 ## Scene composition (`kotoba.amenominaka.scene`, M0 of ADR-2607100100)
 
@@ -75,7 +76,49 @@ instance data in M0's scene EDN, so they're recorded as `pr-str`'d custom
 attrs on an `Environment` scope rather than fabricated geometry.
 `materialx.core` produces one companion neutral-gray `.mtlx` document —
 not yet bound into the `.usda` stage (a documented gap, not a guessed
-UsdMtlx binding schema). glTF export is not implemented — M1 is USD-only.
+UsdMtlx binding schema). glTF export landed separately — see M7 below.
+
+## glTF export (`kotoba.amenominaka.gltf-export`, M7 of ADR-2607100100)
+
+Exports a `compose` result to a binary glTF 2.0 (`.glb`) document, via
+[`org-khronos-gltf`](https://github.com/kotoba-lang/org-khronos-gltf)'s
+new multi-node scene builder (`gltf/export-glb-scene-byte-seq`) — that
+repo previously only ever assembled a single-node/single-mesh document,
+so the general builder landed as part of this milestone too.
+
+```clojure
+(require '[kotoba.amenominaka.gltf-export :as gltf-export])
+
+(gltf-export/scene->glb scene) ;; -> byte[] (JVM) / js/Uint8Array (cljs)
+```
+
+Mirrors `usd-export`'s exact sites → buildings → storeys → elements tree
+walk and geometry-fidelity rule (real box mesh only for an axis-sweep +
+rectangle-profile element, everything else a plain transform-only node —
+glTF's own equivalent of USD's `Xform` placeholder) — reusing
+`usd-export`'s `rectangle-axis-sweep?`/`element-kind-str` directly rather
+than re-implementing them, so the two exporters can't silently drift on
+which elements get real geometry. Same material simplification as USD
+export: one default neutral-gray material (`bim` carries no per-material
+color/PBR data).
+
+**Coordinate system**: `bim`/USD are Z-up, but glTF 2.0's spec *requires*
+Y-up — every position/normal/translation goes through `zup->yup` (a
+determinant-+1 axis permutation, so winding/handedness is preserved).
+**Winding**: `usd-export/axis-sweep-rectangle->box-mesh`'s own
+face-vertex order turned out to be CW-from-outside, not CCW (harmless for
+USD, which never asserted on winding since it doesn't ship per-vertex
+normals) — `box-mesh->gltf-mesh` reverses each face before triangulating
+so glTF gets both correct outward normals *and* correct front-facing
+winding together.
+
+Wired into the M5 UI shell (an "Export glTF" button next to "Export
+USD"). Real-browser verified (`test/render/verify_m7_gltf.cljs`): clicks
+the real button, captures the real browser download (not a mock), and
+parses the downloaded bytes with `org-khronos-gltf`'s own `parse-gltf` —
+confirming valid GLB magic, the expected 5-node hierarchy, exactly one
+real mesh with 24 vertices (6 faces × 4, properly flat-shaded — not the
+box mesh's raw 8 shared points).
 
 ## Real-time render-IR (`kotoba.amenominaka.render-ir`, M2 of ADR-2607100100)
 
@@ -305,12 +348,13 @@ genuine remaining gap.
 
 | | |
 |---|---|
-| Role | Scene composition + USD export + render-IR bridge + extension loader + interactive UI shell: all implemented (M0–M3 + M5, ADR-2607100100); M4 investigated + real fix landed upstream |
-| Tests | green (29 tests / 122 assertions), plus real-browser WebGPU smoke (screenshot-verified) + perf-regression checks + UI-shell interaction checks, all green on GitHub Actions macOS |
+| Role | Scene composition + USD/glTF export + render-IR bridge + extension loader + interactive UI shell: all implemented (M0–M3 + M5 + M7, ADR-2607100100); M4 investigated + real fix landed upstream |
+| Tests | green (35 tests / 151 assertions), plus real-browser WebGPU smoke (screenshot-verified) + perf-regression checks + UI-shell interaction checks + glTF-export download/parse checks, all green on GitHub Actions macOS |
 | R1.4 extension loader | implemented (this repo); `omni.timeline` and `omni.replicator.core` parity remain out of scope/not implemented |
 | Perf | M2's CPU-authored instancing verified performant to 20k+ instances after the M4 fix landed in `kotoba-lang/webgpu` (was a real ~29fps wall at 15k instances before) |
-| UI/UX | M5: environment-preset controls + orbit/zoom camera + USD export, on the org's default `shitsuke`+`liquid-glass-ui`+`kotoba-ui`+`appkit` stack (ADR-2607022800), real-browser interaction-verified |
+| UI/UX | M5: environment-preset controls + orbit/zoom camera + USD/glTF export, on the org's default `shitsuke`+`liquid-glass-ui`+`kotoba-ui`+`appkit` stack (ADR-2607022800), real-browser interaction-verified |
 | Correctness | M6: the `MAX-INST`=16,384 silent-truncation gap is fixed (`kotoba-lang/webgpu`'s instance buffer now grows on demand); real-browser-verified no truncation at 20k instances with no perf regression |
+| Interop | M7: glTF export (`.glb`) alongside USD, sharing the same geometry-fidelity rule; real-browser-verified via a real download + `org-khronos-gltf`'s own parser round-trip |
 
 ## Contract
 

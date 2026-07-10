@@ -21,7 +21,7 @@ body{margin:0;min-height:100vh;color:#eef1f6;
 .am-env-panel{padding:16px;width:260px;display:flex;flex-direction:column;gap:6px;overflow-y:auto}
 .am-env-panel h3{margin:0 0 8px}
 .am-env-panel label{font-size:12px;opacity:.7;margin-top:10px}
-.am-export-row{margin-top:16px}
+.am-export-row{margin-top:16px;display:flex;flex-direction:column;gap:8px}
 #viewport{flex:1;display:block;cursor:grab;width:100%;height:100%}
 .liquid-glass__menu-select select option{color:#1c1c1e}
 ")

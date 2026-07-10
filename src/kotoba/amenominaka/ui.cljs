@@ -33,13 +33,16 @@
             [kotoba.amenominaka.scene :as amenominaka-scene]
             [kotoba.amenominaka.render-ir :as render-ir]
             [kotoba.amenominaka.usd-export :as usd-export]
+            [kotoba.amenominaka.gltf-export :as gltf-export]
             [kami.webgpu :as webgpu]
             [kami.webgpu.ir :as ir]))
 
 ;; ── controlled-component workarounds (see ns docstring) ──
 
-(defn- btn [label on-click]
-  [:button {:class (ui/class-name :button) :type "button" :on-click on-click} label])
+(defn- btn
+  ([label on-click] (btn label on-click nil))
+  ([label on-click id]
+   [:button {:id id :class (ui/class-name :button) :type "button" :on-click on-click} label]))
 
 (defn- preset-select [options {:keys [id value on-change]}]
   [:div {:class (ui/class-name :menu-select)}
@@ -150,17 +153,28 @@
 ;; ── USD export (wires M1's kotoba.amenominaka.usd-export to a real
 ;; browser download, using the CURRENTLY selected presets) ──
 
-(defn- download-usda! []
-  (let [text (usd-export/scene->usda (current-scene))
-        blob (js/Blob. #js [text] #js {:type "text/plain"})
-        url (js/URL.createObjectURL blob)
+(defn- download-blob! [blob filename]
+  (let [url (js/URL.createObjectURL blob)
         a (js/document.createElement "a")]
     (set! (.-href a) url)
-    (set! (.-download a) "scene.usda")
+    (set! (.-download a) filename)
     (js/document.body.appendChild a)
     (.click a)
     (js/document.body.removeChild a)
     (js/URL.revokeObjectURL url)))
+
+(defn- download-usda! []
+  (download-blob! (js/Blob. #js [(usd-export/scene->usda (current-scene))] #js {:type "text/plain"})
+                   "scene.usda"))
+
+;; ── glTF export (M7: wires kotoba.amenominaka.gltf-export to a real
+;; browser download, using the CURRENTLY selected presets — same pattern
+;; as USD export above, just a binary Blob instead of a text one). ──
+
+(defn- download-glb! []
+  (let [bytes (gltf-export/scene->glb (current-scene))
+        blob (js/Blob. #js [bytes] #js {:type "model/gltf-binary"})]
+    (download-blob! blob "scene.glb")))
 
 ;; ── mount / view ──
 
@@ -203,7 +217,9 @@
     [preset-field "Terrain" terrain-options :terrain]
     [preset-field "Post FX" postfx-options :postfx]
     [preset-field "Vegetation" vegetation-options :vegetation]
-    [:div {:class "am-export-row"} [btn "Export USD" (fn [_e] (download-usda!))]]]
+    [:div {:class "am-export-row"}
+     [btn "Export USD" (fn [_e] (download-usda!)) "export-usd"]
+     [btn "Export glTF" (fn [_e] (download-glb!)) "export-gltf"]]]
    {:surface :thick :elevation :flat}])
 
 (defn- debug-state []

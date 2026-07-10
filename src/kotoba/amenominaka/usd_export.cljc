@@ -92,11 +92,20 @@
      :face-vertex-indices (vec (mapcat identity faces))
      :face-vertex-counts (vec (repeat (count faces) 4))}))
 
-(defn- rectangle-axis-sweep? [geometry]
+(defn rectangle-axis-sweep?
+  "True if `geometry` is an `:axis-sweep` element with a `:rectangle`
+  profile — the one case [[axis-sweep-rectangle->box-mesh]] can compute a
+  real box mesh for. Public: also used by `kotoba.amenominaka.gltf-export`
+  (M7) to decide the identical real-mesh-vs-placeholder-node split for
+  glTF, keeping the geometry-fidelity rule defined in exactly one place."
+  [geometry]
   (and (= :axis-sweep (:kind geometry))
        (= :rectangle (get-in geometry [:profile :kind]))))
 
-(defn- element-kind-str [kind]
+(defn element-kind-str
+  "`:wall`/`\"wall\"`/nil -> `\"wall\"`/`\"wall\"`/`\"element\"`. Public: shared
+  naming convention with `kotoba.amenominaka.gltf-export` (M7)."
+  [kind]
   (cond (keyword? kind) (name kind) (some? kind) (str kind) :else "element"))
 
 (defn- element->prim [{:keys [id kind geometry]}]
