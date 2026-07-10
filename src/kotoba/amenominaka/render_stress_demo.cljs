@@ -83,5 +83,12 @@
                         (clj->js {:n n :instanceCount instance-count :framesDrawn (count times)
                                   :composeMs (- t-compose1 t-compose0)
                                   :avgFrameMs avg :p95FrameMs p95 :maxFrameMs max-t
-                                  :avgFps (/ 1000.0 avg)}))))))))
+                                  :avgFps (/ 1000.0 avg)
+                                  ;; ADR-2607100100 M6: instanceCount is the scene's INPUT count
+                                  ;; (never truncated, always == n) — instBufferCapacity is what
+                                  ;; the GPU instance buffer actually grew to. Before M6 this repo's
+                                  ;; own instanceCount metric couldn't reveal the MAX-INST=16384
+                                  ;; silent-truncation bug at all (draw!'s internal `take` was
+                                  ;; invisible from here); this field makes that assertable now.
+                                  :instBufferCapacity (webgpu/inst-buffer-capacity ctx)}))))))))
         (.catch (fn [err] (set-out! (str "error: " err)))))))

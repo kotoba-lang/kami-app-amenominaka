@@ -17,7 +17,13 @@
   tools.deps `.cpcache` classpath cache pointing at an unpatched sibling
   checkout during that investigation, not a `waitForFunction` bug per
   se, but the plain poll loop proved reliable and is kept for both
-  robustness and consistency across re-runs)."
+  robustness and consistency across re-runs).
+
+  M6 (ADR-2607100100) addition: `check-no-truncation!` asserts
+  `instBufferCapacity >= n` at the top scale (20000, past the old
+  MAX-INST=16384 hard cap) — a real regression guard against the GPU
+  instance buffer silently dropping instances again, distinct from
+  `check-regression!`'s perf guard below."
   (:require ["node:path" :as path]
             [lib.webgpu-harness :as harness]))
 
@@ -71,6 +77,18 @@
                      " caching (ADR-2607100100 M4) may have regressed."))
       (set! (.-exitCode js/process) 1))))
 
+;; M6: past the old MAX-INST=16384 hard cap — instBufferCapacity must have
+;; grown to fit, or draw! is silently truncating instances again.
+(def truncation-check-n 20000)
+
+(defn- check-no-truncation! [results]
+  (when-let [r (some #(when (= (.-n %) truncation-check-n) %) results)]
+    (when (< (.-instBufferCapacity r) truncation-check-n)
+      (println (str "TRUNCATION: n=" truncation-check-n " instBufferCapacity=" (.-instBufferCapacity r)
+                     " is less than n — kami-webgpu's draw! instance buffer (ADR-2607100100 M6)"
+                     " may be silently dropping instances again."))
+      (set! (.-exitCode js/process) 1))))
+
 (defn- verify-page [page base-url]
   (-> (harness/check-webgpu-available page (str base-url "/m4-stress-demo.html?n=10&frames=1"))
       (.then (fn [availability]
@@ -78,7 +96,8 @@
                  (-> (run-all-scales page base-url scales)
                      (.then (fn [results]
                               (doseq [r results] (println (js/JSON.stringify r)))
-                              (check-regression! results))))
+                              (check-regression! results)
+                              (check-no-truncation! results))))
                  (println (js/JSON.stringify (clj->js {:skipped true :reason (.-reason availability)}))))))))
 
 (defn- run-investigation [browser base-url]
