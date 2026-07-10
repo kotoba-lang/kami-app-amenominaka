@@ -13,6 +13,17 @@
   it — so M4's instance-buffer cache stays hot in fly mode exactly like
   it does in orbit mode (camera-only frames never touch `:instances`).
 
+  M9: `omni.timeline` parity (D7's own scoping — \"minimal keyframe/camera-
+  path\", see `kotoba.amenominaka.timeline`'s docstring). \"Record
+  Keyframe\" captures wherever the camera currently is (orbit OR fly, both
+  just produce an :eye/:target the same way M8 already established) into
+  an ordered path; \"Play\" drives a real requestAnimationFrame loop that
+  interpolates along it and overrides the render-IR's camera each frame —
+  a third, temporary camera source layered over orbit/fly (see
+  [[apply-timeline-at!]]), not a third `:camera-mode` value, since
+  playback is a transient override, not a persistent mode the user
+  toggles the same way.
+
   Built on the org's DEFAULT UI/UX design system per ADR-2607022800:
   `shitsuke` (structure) + `liquid-glass-ui` (material) + `kotoba-ui`
   (single require-point) + `appkit` (desktop binding — this is a panels/
@@ -43,6 +54,7 @@
             [kotoba.amenominaka.render-ir :as render-ir]
             [kotoba.amenominaka.usd-export :as usd-export]
             [kotoba.amenominaka.gltf-export :as gltf-export]
+            [kotoba.amenominaka.timeline :as tl]
             [kami.webgpu :as webgpu]
             [kami.webgpu.ir :as ir]))
 
@@ -102,6 +114,7 @@
            :camera {:azimuth 0.785 :distance 64.0 :height 55.0}
            :fly {:pos [0.0 5.0 0.0] :yaw 0.0 :pitch 0.0}
            :fly-keys #{}
+           :timeline [] :playhead 0.0 :playing? false
            :pivot nil
            :render-ir nil
            :webgpu-ctx nil
@@ -266,6 +279,58 @@
         (start-fly-loop!)))
     (apply-camera!)))
 
+;; ── omni.timeline parity: minimal keyframe/camera-path (M9) ──
+;;
+;; apply-timeline-at! pushes eye/target straight into the render-IR the
+;; same way apply-camera! does — it deliberately does NOT go through
+;; apply-camera!/camera-mode, since playback is a transient override of
+;; whatever the camera is currently doing, not a mode switch (orbit/fly
+;; state is left untouched underneath and resumes as-is once playback/
+;; scrubbing stops).
+
+(defn- apply-timeline-at! [t]
+  (let [{:keys [render-ir timeline webgpu-ctx]} @state]
+    (when-let [{:keys [eye target]} (tl/eval-at timeline t)]
+      (let [ir' (-> render-ir (assoc-in [:globals :eye] eye) (assoc-in [:globals :target] target))]
+        (swap! state assoc :render-ir ir' :playhead t)
+        (when webgpu-ctx (webgpu/draw! webgpu-ctx ir'))))))
+
+(defn- record-keyframe! []
+  (let [{:keys [render-ir]} @state
+        eye (get-in render-ir [:globals :eye])
+        target (get-in render-ir [:globals :target])]
+    (when (and eye target)
+      (swap! state update :timeline tl/add-keyframe eye target))))
+
+(defn- clear-timeline! []
+  (swap! state assoc :timeline [] :playhead 0.0 :playing? false))
+
+(defonce timeline-loop-running? (atom false))
+
+(defn- timeline-loop! [last-t]
+  (let [{:keys [playing? playhead timeline]} @state
+        dur (tl/duration timeline)]
+    (if (and playing? (< playhead dur))
+      (let [now (js/performance.now)
+            t' (min dur (+ playhead (/ (- now last-t) 1000.0)))]
+        (apply-timeline-at! t')
+        (js/requestAnimationFrame (fn [] (timeline-loop! now))))
+      (do (swap! state assoc :playing? false)
+          (reset! timeline-loop-running? false)))))
+
+(defn- play-timeline! []
+  (let [{:keys [timeline playhead]} @state]
+    (when (and (seq timeline) (not @timeline-loop-running?))
+      ;; restart from the top if already at (or past) the end
+      (when (>= playhead (tl/duration timeline)) (swap! state assoc :playhead 0.0))
+      (swap! state assoc :playing? true)
+      (reset! timeline-loop-running? true)
+      (js/requestAnimationFrame (fn [] (timeline-loop! (js/performance.now)))))))
+
+(defn- pause-timeline! [] (swap! state assoc :playing? false))
+
+(defn- scrub-timeline! [t] (apply-timeline-at! t))
+
 ;; ── USD export (wires M1's kotoba.amenominaka.usd-export to a real
 ;; browser download, using the CURRENTLY selected presets) ──
 
@@ -345,22 +410,49 @@
      [btn "Export glTF" (fn [_e] (download-glb!)) "export-gltf"]]]
    {:surface :thick :elevation :flat}])
 
+;; ── omni.timeline UI (M9) — record the current camera view as a
+;; keyframe, scrub/play back the resulting path. ──
+
+(defn- timeline-panel []
+  (let [{:keys [timeline playhead playing?]} @state
+        dur (tl/duration timeline)]
+    [shape/panel
+     [:div {:class "am-timeline-panel"}
+      [:h3 "Camera Path"]
+      [:div {:class "am-timeline-info"}
+       (str (count timeline) " keyframe" (when (not= 1 (count timeline)) "s")
+            ", " (.toFixed dur 1) "s")]
+      [:input {:id "timeline-scrub" :type "range" :min 0 :max (max dur 0.001) :step 0.01
+               :value playhead :disabled (zero? dur)
+               :on-change (fn [e] (scrub-timeline! (js/parseFloat (.. e -target -value))))}]
+      [:div {:class "am-timeline-row"}
+       [btn "Record Keyframe" (fn [_e] (record-keyframe!)) "record-keyframe"]
+       [btn (if playing? "Pause" "Play")
+        (fn [_e] (if playing? (pause-timeline!) (play-timeline!)))
+        "toggle-play"]
+       [btn "Clear" (fn [_e] (clear-timeline!)) "clear-timeline"]]]
+     {:surface :thick :elevation :flat}]))
+
 (defn- debug-state []
   ;; Same idiom as M2/M4's `#out` div: a plain DOM text node a real-browser
   ;; nbb/Playwright script can poll, since WebGPU canvas pixel readback was
   ;; found unreliable in this Chromium build (see test/render/verify_m2_render
   ;; docstring) and there is no other externally-observable signal that a
   ;; preset change actually reached (state) and re-rendered.
-  (let [{:keys [weather terrain postfx vegetation camera-mode fly]} @state]
+  (let [{:keys [weather terrain postfx vegetation camera-mode fly timeline playhead playing? render-ir]} @state]
     [:span {:id "debug-state" :style {:display "none"}}
      (js/JSON.stringify (clj->js {:weather weather :terrain terrain :postfx postfx :vegetation vegetation
-                                   :cameraMode (name camera-mode) :flyPos (:pos fly)}))]))
+                                   :cameraMode (name camera-mode) :flyPos (:pos fly)
+                                   :keyframeCount (count timeline) :playhead playhead :playing playing?
+                                   :renderEye (get-in render-ir [:globals :eye])}))]))
 
 (defn- root []
   [:div {:class "am-shell"}
    [ui/nav-bar "kami-app-amenominaka" {:trailing nil}]
    [:div {:class "am-body"}
-    [env-panel]
+    [:div {:class "am-sidebar"}
+     [env-panel]
+     [timeline-panel]]
     [viewport]]
    [debug-state]])
 

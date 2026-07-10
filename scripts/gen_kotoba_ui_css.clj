@@ -18,10 +18,16 @@ body{margin:0;min-height:100vh;color:#eef1f6;
   background-attachment:fixed;overscroll-behavior:none;}
 .am-shell{display:flex;flex-direction:column;height:100vh}
 .am-body{display:flex;flex:1;min-height:0}
-.am-env-panel{padding:16px;width:260px;display:flex;flex-direction:column;gap:6px;overflow-y:auto}
+.am-sidebar{display:flex;flex-direction:column;width:260px;overflow-y:auto}
+.am-env-panel{padding:16px;display:flex;flex-direction:column;gap:6px}
 .am-env-panel h3{margin:0 0 8px}
 .am-env-panel label{font-size:12px;opacity:.7;margin-top:10px}
 .am-export-row{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+.am-timeline-panel{padding:16px;display:flex;flex-direction:column;gap:8px}
+.am-timeline-panel h3{margin:0 0 4px}
+.am-timeline-info{font-size:12px;opacity:.7}
+.am-timeline-panel input[type=range]{width:100%}
+.am-timeline-row{display:flex;flex-direction:column;gap:8px;margin-top:4px}
 #viewport{flex:1;display:block;cursor:grab;width:100%;height:100%}
 .liquid-glass__menu-select select option{color:#1c1c1e}
 ")

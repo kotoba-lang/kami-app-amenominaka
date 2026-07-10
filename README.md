@@ -12,8 +12,9 @@ but the extension loader itself is now real. **`kotoba.amenominaka.scene`
 (M2), the extension loader (`kotoba.amenominaka.application` +
 `kotoba.amenominaka.extension` + `kotoba.amenominaka.extensions`, M3), the
 interactive UI shell (`kotoba.amenominaka.ui`, M5), glTF export
-(`kotoba.amenominaka.gltf-export`, M7), and a second free-fly camera mode
-(M8) — all of ADR-2607100100 (`com-junkawasaki/root`) — are implemented.**
+(`kotoba.amenominaka.gltf-export`, M7), a second free-fly camera mode
+(M8), and camera-path recording/playback (`kotoba.amenominaka.timeline`,
+M9) — all of ADR-2607100100 (`com-junkawasaki/root`) — are implemented.**
 
 ## Scene composition (`kotoba.amenominaka.scene`, M0 of ADR-2607100100)
 
@@ -356,6 +357,49 @@ doesn't necessarily flush to the DOM before Playwright's `.click()`
 promise resolves — the toggle-back assertion polls `#debug-state`
 instead of reading it exactly once immediately after the click.
 
+## `omni.timeline` parity — camera path (`kotoba.amenominaka.timeline`, M9 of ADR-2607100100)
+
+D7's own scoping for `omni.timeline` parity is explicit: **"minimal
+keyframe/camera-path"**, not a full USD-stage animation timeline
+(scrubbing arbitrary property animation, layers, etc. — a documented
+non-goal, same stance M1 already takes on its MaterialX-binding gap).
+
+A camera path is an ordered vector of keyframes,
+`[{:t 0.0 :eye [x y z] :target [x y z]} ...]`, auto-spaced 2 seconds
+apart. `kotoba.amenominaka.timeline` (`.cljc`, zero dependencies) is pure
+data + functions — `add-keyframe`, `duration`, and `eval-at` (linear
+interpolation between the two keyframes bounding a given time, clamped
+outside the path's range) — portable and unit-tested on the JVM with no
+platform code involved.
+
+**"Record Keyframe"** captures wherever the camera currently is —
+whether in orbit or fly mode, both just produce an `:eye`/`:target` the
+same way (M8 already established this). **"Play"** drives a real
+`requestAnimationFrame` loop that interpolates along the path and pushes
+`:eye`/`:target` straight into the render-IR each frame — deliberately
+*not* routed through `apply-camera!`/`:camera-mode`, since playback is a
+transient override of whatever the camera is doing, not a mode switch;
+orbit/fly state underneath is untouched and simply resumes once playback
+or scrubbing stops. The scrubber (`#timeline-scrub`, a plain
+`<input type="range">`) lets you manually preview any point on the path
+while paused.
+
+**Real-browser verification** (`test/render/verify_m9_timeline.cljs`):
+records two keyframes at genuinely different positions (moves via a real
+held `d` keydown in fly mode between them), scrubs to the exact midpoint
+and confirms the render-IR's `:eye` is the arithmetic mean of the two
+recorded eyes (real linear interpolation, not just a UI-state change —
+confirmed to full floating-point precision), plays back over real
+wall-clock time until it auto-stops at the path's end, and confirms the
+rendered frame visibly changed during playback. This verification found
+two real bugs along the way, neither in the app logic itself:
+Playwright's `locator.fill()` does not support `type=range` inputs
+(`"Malformed value"` — worked around with a direct `.value` write +
+dispatched `input`/`change` events), and the same React 18 batching race
+M8's verification already found recurred here for the "Record Keyframe"
+button (worked around the same way — poll `#debug-state` instead of a
+single post-click read).
+
 ## Scope (R1.4 deliverable)
 
 The upstream README describes 5 reference-extension parities as the
@@ -369,23 +413,23 @@ R1.4 deliverable:
 | `omni.usd` parity | done (M1 USD export) |
 | `omni.kit.viewport` parity | done (M2 render-IR + real-browser walkthrough) |
 | `omni.kit.app` parity | done (the loader itself, M3) |
-| `omni.timeline` parity | **not implemented** (keyframe/camera-path — ADR-2607100100 D7 marks this M3-stretch, not required) |
+| `omni.timeline` parity | done — minimal keyframe/camera-path (M9, `kotoba.amenominaka.timeline`; D7 itself scopes this down from a full USD-stage animation timeline) |
 | `omni.replicator.core` parity | **out of scope** (synthetic-data/domain-randomization — ADR-2607100100 D6 explicit non-goal, deferred to a future ADR) |
 
 The R1.4 gate as upstream defined it (all 5 extensions working) does not
 fully close — `omni.replicator.core` is a permanent non-goal here, so it
-structurally can't. Four of five are real; `omni.timeline` is the one
-genuine remaining gap.
+structurally can't. All 4 extensions upstream expected this repo to
+actually implement are now real.
 
 ## Maturity
 
 | | |
 |---|---|
-| Role | Scene composition + USD/glTF export + render-IR bridge + extension loader + interactive UI shell (orbit + free-fly camera): all implemented (M0–M3 + M5 + M7 + M8, ADR-2607100100); M4 investigated + real fix landed upstream |
-| Tests | green (35 tests / 151 assertions), plus real-browser WebGPU smoke (screenshot-verified) + perf-regression checks + UI-shell interaction checks + glTF-export download/parse checks + fly-camera movement checks, all green on GitHub Actions macOS |
-| R1.4 extension loader | implemented (this repo); `omni.timeline` and `omni.replicator.core` parity remain out of scope/not implemented |
+| Role | Scene composition + USD/glTF export + render-IR bridge + extension loader + interactive UI shell (orbit + free-fly camera + camera-path playback): all implemented (M0–M3 + M5 + M7 + M8 + M9, ADR-2607100100); M4 investigated + real fix landed upstream |
+| Tests | green (41 tests / 170 assertions), plus real-browser WebGPU smoke (screenshot-verified) + perf-regression checks + UI-shell interaction checks + glTF-export download/parse checks + fly-camera movement checks + camera-path playback/interpolation checks, all green on GitHub Actions macOS |
+| R1.4 extension loader | implemented (this repo); all 4 required extension parities done, `omni.replicator.core` remains a permanent, explicit non-goal |
 | Perf | M2's CPU-authored instancing verified performant to 20k+ instances after the M4 fix landed in `kotoba-lang/webgpu` (was a real ~29fps wall at 15k instances before) |
-| UI/UX | M5+M8: environment-preset controls + orbit/free-fly cameras + USD/glTF export, on the org's default `shitsuke`+`liquid-glass-ui`+`kotoba-ui`+`appkit` stack (ADR-2607022800), real-browser interaction-verified |
+| UI/UX | M5+M8+M9: environment-preset controls + orbit/free-fly cameras + camera-path record/scrub/playback + USD/glTF export, on the org's default `shitsuke`+`liquid-glass-ui`+`kotoba-ui`+`appkit` stack (ADR-2607022800), real-browser interaction-verified |
 | Correctness | M6: the `MAX-INST`=16,384 silent-truncation gap is fixed (`kotoba-lang/webgpu`'s instance buffer now grows on demand); real-browser-verified no truncation at 20k instances with no perf regression |
 | Interop | M7: glTF export (`.glb`) alongside USD, sharing the same geometry-fidelity rule; real-browser-verified via a real download + `org-khronos-gltf`'s own parser round-trip |
 
