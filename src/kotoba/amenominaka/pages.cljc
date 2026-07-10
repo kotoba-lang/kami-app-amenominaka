@@ -19,6 +19,6 @@
   (html/html5
    [:html [:head [:meta {:charset "utf-8"}] [:meta {:name "viewport" :content "width=device-width,initial-scale=1"}]
            [:title "Amenominaka · Archviz"] [:style (css/css styles)]]
-    [:body [:header [:strong "天之御中 · AMENOMINAKA"] [:small "Realtime architectural visualization"]]
+    [:body [:header [:strong "天之御中 · AMENOMINAKA"] [:a {:href "https://kotoba-lang.github.io/kami-studio/"} "Studio"] [:small "Realtime architectural visualization"]]
      [:main [:aside [:h3 "Scene"] [:button "Quarry Walk Lodge"] [:button "Import BIM / USD"] [:h3 "Environment"] [:button "Overcast · Plains"] [:button "Grass · Soft light"] [:h3 "Output"] [:button "Capture image"] [:button "Export USD / glTF"]]
       [:section.hero [:article.card [:small "WALKTHROUGH READY"] [:h1 "Architecture, in real time."] [:p "Compose BIM geometry with atmosphere, terrain, vegetation and post-processing. The live application uses the existing WebGPU renderer; this page presents the same operational workflow."] [:div.metrics [:div.metric [:strong "USD"] [:br] [:small "scene export"]] [:div.metric [:strong "glTF"] [:br] [:small "interchange"]] [:div.metric [:strong "WebGPU"] [:br] [:small "realtime"]]]]]]]]))
