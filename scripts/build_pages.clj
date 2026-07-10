@@ -1,0 +1,2 @@
+(require '[clojure.java.io :as io] '[kotoba.amenominaka.pages :as pages])
+(spit (io/file "public" "index.html") (pages/page))
