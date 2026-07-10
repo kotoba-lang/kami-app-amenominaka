@@ -165,3 +165,8 @@ jobs:
       # changed rendered frame (see test/render/verify_m8_fly_camera.cljs).
       - run: npx nbb -cp test/render test/render/verify_m8_fly_camera.cljs
         working-directory: kami-app-amenominaka
+      # M9 (ADR-2607100100): omni.timeline (camera-path) real-browser
+      # verification — records real keyframes, scrubs, plays back over
+      # real wall-clock time (see test/render/verify_m9_timeline.cljs).
+      - run: npx nbb -cp test/render test/render/verify_m9_timeline.cljs
+        working-directory: kami-app-amenominaka
