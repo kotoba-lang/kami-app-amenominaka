@@ -136,6 +136,28 @@ addressed this specific bottleneck. Measured improvement: 15,000
 instances 34.0ms→0.85ms/frame (~40×). This demo/harness is kept as a
 reusable perf-regression check, not a one-time throwaway.
 
+## MAX-INST correctness fix (M6 of ADR-2607100100)
+
+M4/M5's addenda both kept listing "instances past `MAX-INST` (16,384) are
+silently dropped by `draw!`" as an unresolved **correctness** gap (not a
+perf one — a real risk for genuinely large, city-scale scenes). Root
+cause: `kotoba-lang/webgpu`'s `draw!` allocated a fixed-size GPU instance
+buffer and `(take MAX-INST raw-instances)`-truncated with no warning.
+Notably, this repo's own M4 benchmark couldn't have caught it — it only
+ever reported `instanceCount` (the scene's *input* count, always
+correct), never what `draw!` actually uploaded.
+
+Fixed upstream: `org-w3-webgpu` gained a `destroy-buffer!` wrapper;
+`kotoba-lang/webgpu`'s instance buffer now grows (doubling) via a new
+`ensure-inst-buffer!` whenever a frame's instance count exceeds current
+capacity, instead of capping it. `render-stress-demo` now also reports
+`instBufferCapacity`, and `verify_m4_stress.cljs` asserts it's `>= n` at
+the 20,000-instance scale (past the old cap) alongside the existing perf
+regression check — both green: capacity correctly grows 16,384→32,768,
+and average frame time at 15,000 instances stays ~1.2ms (M4's `O(1)`
+per-frame fix wasn't reintroduced, since growth only happens on a real
+cache-miss frame).
+
 ## Extension loader (`kotoba.amenominaka.application`+`.extension`+`.extensions`, M3 of ADR-2607100100)
 
 The `application`/`extension` protocols are **ported forward from
@@ -288,6 +310,7 @@ genuine remaining gap.
 | R1.4 extension loader | implemented (this repo); `omni.timeline` and `omni.replicator.core` parity remain out of scope/not implemented |
 | Perf | M2's CPU-authored instancing verified performant to 20k+ instances after the M4 fix landed in `kotoba-lang/webgpu` (was a real ~29fps wall at 15k instances before) |
 | UI/UX | M5: environment-preset controls + orbit/zoom camera + USD export, on the org's default `shitsuke`+`liquid-glass-ui`+`kotoba-ui`+`appkit` stack (ADR-2607022800), real-browser interaction-verified |
+| Correctness | M6: the `MAX-INST`=16,384 silent-truncation gap is fixed (`kotoba-lang/webgpu`'s instance buffer now grows on demand); real-browser-verified no truncation at 20k instances with no perf regression |
 
 ## Contract
 
