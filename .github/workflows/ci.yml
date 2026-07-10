@@ -160,3 +160,8 @@ jobs:
       # with org-khronos-gltf's own parser (see verify_m7_gltf.cljs docstring).
       - run: npx nbb -cp "test/render:../org-khronos-gltf/src:../org-khronos-glb/src" test/render/verify_m7_gltf.cljs
         working-directory: kami-app-amenominaka
+      # M8 (ADR-2607100100): fly-camera real-browser verification — toggles
+      # camera mode, holds a real 'w' keydown, confirms real movement + a
+      # changed rendered frame (see test/render/verify_m8_fly_camera.cljs).
+      - run: npx nbb -cp test/render test/render/verify_m8_fly_camera.cljs
+        working-directory: kami-app-amenominaka
