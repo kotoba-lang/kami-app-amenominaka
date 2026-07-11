@@ -51,3 +51,14 @@
 (deftest clear-test
   (let [t (timeline/add-keyframe [] [1.0 2.0 3.0] [4.0 5.0 6.0])]
     (is (= [] (timeline/clear t)))))
+
+(deftest edit-camera-keyframes-test
+  (let [path (-> [] (timeline/add-keyframe [0 0 0] [0 0 1])
+                 (timeline/add-keyframe [2 0 0] [2 0 1])
+                 (timeline/add-keyframe [4 0 0] [4 0 1]))
+        moved (timeline/move-keyframe path 1 1.25)
+        deleted (timeline/delete-keyframe moved 1)]
+    (is (= [0.0 1.25 4.0] (mapv :t moved)))
+    (is (= [[0 0 0] [4 0 0]] (mapv :eye deleted)))
+    (is (thrown? #?(:clj Exception :cljs js/Error) (timeline/move-keyframe path 1 4.0)))
+    (is (thrown? #?(:clj Exception :cljs js/Error) (timeline/delete-keyframe path 9)))))

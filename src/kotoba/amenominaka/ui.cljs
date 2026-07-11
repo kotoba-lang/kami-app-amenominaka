@@ -46,6 +46,7 @@
   `murakumo-studio/src/murakumo_studio/ui.cljs`'s real, live-reproduced
   fix for the identical bug."
   (:require [cljs.reader :as reader]
+            [clojure.string :as string]
             [reagent.core :as r]
             [reagent.dom.client :as rdomc]
             [appkit.core :as shape]
@@ -120,7 +121,7 @@
            :camera {:azimuth 0.785 :distance 64.0 :height 55.0}
            :fly {:pos [0.0 5.0 0.0] :yaw 0.0 :pitch 0.0}
            :fly-keys #{}
-           :timeline [] :playhead 0.0 :playing? false
+           :timeline [] :playhead 0.0 :playing? false :selected-keyframe nil
            :pivot nil
            :render-ir nil
            :webgpu-ctx nil
@@ -324,7 +325,7 @@
              "u" :export-usd "g" :export-gltf "p" :toggle-playback}})
 
 (declare toggle-camera-mode! record-keyframe! download-usda! download-glb!
-         play-timeline! pause-timeline!)
+         download-blob! play-timeline! pause-timeline!)
 
 (defn- editable-target? [e]
   (let [target (.-target e)
@@ -430,10 +431,28 @@
         eye (get-in render-ir [:globals :eye])
         target (get-in render-ir [:globals :target])]
     (when (and eye target)
-      (swap! state update :timeline tl/add-keyframe eye target))))
+      (swap! state update :timeline tl/add-keyframe eye target)
+      (swap! state assoc :selected-keyframe (dec (count (:timeline @state))))
+      (mark-changed!))))
 
 (defn- clear-timeline! []
-  (swap! state assoc :timeline [] :playhead 0.0 :playing? false))
+  (swap! state assoc :timeline [] :playhead 0.0 :playing? false :selected-keyframe nil)
+  (mark-changed!))
+(defn- delete-camera-key! [index]
+  (swap! state update :timeline tl/delete-keyframe index)
+  (swap! state assoc :selected-keyframe nil :playhead (min (:playhead @state) (tl/duration (:timeline @state))))
+  (mark-changed!))
+(defn- move-camera-key! [index time]
+  (try (do (swap! state update :timeline tl/move-keyframe index time)
+           (swap! state assoc :playhead time :selected-keyframe index)
+           (apply-timeline-at! time) (mark-changed!))
+       (catch :default _ nil)))
+(defn- camera-path-csv []
+  (str "time,eye_x,eye_y,eye_z,target_x,target_y,target_z\n"
+       (string/join "\n" (map (fn [{:keys [t eye target]}]
+                                  (string/join "," (concat [t] eye target))) (:timeline @state)))))
+(defn- download-camera-path! []
+  (download-blob! (js/Blob. #js [(camera-path-csv)] #js {:type "text/csv;charset=utf-8"}) "camera-path.csv"))
 
 (defonce timeline-loop-running? (atom false))
 
@@ -637,7 +656,18 @@
        [btn (if playing? "Pause" "Play")
         (fn [_e] (if playing? (pause-timeline!) (play-timeline!)))
         "toggle-play"]
-       [btn "Clear" (fn [_e] (clear-timeline!)) "clear-timeline"]]]
+       [btn "Export CSV" (fn [_e] (download-camera-path!)) "export-camera-path"]
+       [btn "Clear" (fn [_e] (clear-timeline!)) "clear-timeline"]]
+      [:div {:id "camera-key-list" :class "am-camera-key-list"}
+       (for [[index keyframe] (map-indexed vector timeline)]
+         ^{:key (str "camera-key-" index)}
+         [:div {:class (str "am-camera-key" (when (= index (:selected-keyframe @state)) " selected"))}
+          [:button {:on-click #(do (swap! state assoc :selected-keyframe index) (scrub-timeline! (:t keyframe)))}
+           (str "Shot " (inc index))]
+          [:input {:type "number" :step 0.1 :min 0 :value (:t keyframe)
+                   :aria-label (str "Shot " (inc index) " time")
+                   :on-change #(move-camera-key! index (js/parseFloat (.. % -target -value)))}]
+          [:button {:aria-label (str "Delete shot " (inc index)) :on-click #(delete-camera-key! index)} "×"]])]]
      {:surface :thick :elevation :flat}]))
 
 (defn- debug-state []
@@ -646,7 +676,7 @@
   ;; found unreliable in this Chromium build (see test/render/verify_m2_render
   ;; docstring) and there is no other externally-observable signal that a
   ;; preset change actually reached (state) and re-rendered.
-  (let [{:keys [weather terrain postfx vegetation interaction-profile camera-mode fly timeline playhead playing? render-ir webgpu-ctx selected-element building project-revision save-status]} @state]
+  (let [{:keys [weather terrain postfx vegetation interaction-profile camera-mode fly timeline selected-keyframe playhead playing? render-ir webgpu-ctx selected-element building project-revision save-status]} @state]
     [:span {:id "debug-state" :style {:display "none"}}
      (js/JSON.stringify (clj->js {:weather weather :terrain terrain :postfx postfx :vegetation vegetation
                                    :interactionProfile (name interaction-profile)
@@ -655,7 +685,7 @@
                                    :selectedElement selected-element
                                    :projectVersion project/current-version :projectRevision project-revision :saveStatus (name save-status)
                                    :rendererBackend (name (:backend webgpu-ctx :webgpu))
-                                   :keyframeCount (count timeline) :playhead playhead :playing playing?
+                                   :keyframeCount (count timeline) :selectedKeyframe selected-keyframe :keyframeTimes (mapv :t timeline) :playhead playhead :playing playing?
                                    :renderEye (get-in render-ir [:globals :eye])}))]))
 
 (defn- root []

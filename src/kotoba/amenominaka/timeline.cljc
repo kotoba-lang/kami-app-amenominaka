@@ -34,6 +34,20 @@
 
 (defn clear [_timeline] [])
 
+(defn delete-keyframe [timeline index]
+  (when-not (< -1 index (count timeline))
+    (throw (ex-info "camera keyframe index out of range" {:index index})))
+  (vec (concat (subvec (vec timeline) 0 index) (subvec (vec timeline) (inc index)))))
+
+(defn move-keyframe [timeline index new-time]
+  (when-not (< -1 index (count timeline))
+    (throw (ex-info "camera keyframe index out of range" {:index index})))
+  (let [previous (when (pos? index) (:t (nth timeline (dec index))))
+        next-time (when (< index (dec (count timeline))) (:t (nth timeline (inc index))))]
+    (when (or (neg? new-time) (and previous (<= new-time previous)) (and next-time (>= new-time next-time)))
+      (throw (ex-info "camera keyframe time must remain strictly ordered" {:index index :time new-time})))
+    (assoc (vec timeline) index (assoc (nth timeline index) :t new-time))))
+
 (defn- lerp [a b t] (+ a (* (- b a) t)))
 (defn- lerp-v [a b t] (mapv (fn [x y] (lerp x y t)) a b))
 
