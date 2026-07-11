@@ -115,6 +115,7 @@
   (r/atom {:weather "overcast" :terrain "plains" :postfx "nintendo" :vegetation ["grass"]
            :building (sample-building) :selected-element 4 :next-element-id 5
            :project-id "quarry-walk-lodge" :project-name "Quarry Walk Lodge" :project-revision 0 :save-status :clean
+           :render-export-status :idle
            :building-history [] :building-future []
            :interaction-profile :twinmotion
            :camera-mode :orbit
@@ -316,15 +317,15 @@
 
 (def ^:private profile-shortcuts
   {:twinmotion {"m" :toggle-camera "k" :record-keyframe "1" :overcast "2" :clear
-                "u" :export-usd "g" :export-gltf "p" :toggle-playback}
+                "u" :export-usd "g" :export-gltf "r" :export-png "p" :toggle-playback}
    :lumion {"f" :toggle-camera "p" :record-keyframe "1" :overcast "2" :clear
-            "u" :export-usd "g" :export-gltf "k" :toggle-playback}
+            "u" :export-usd "g" :export-gltf "r" :export-png "k" :toggle-playback}
    :d5-render {"f" :toggle-camera "k" :record-keyframe "1" :overcast "2" :clear
-               "u" :export-usd "g" :export-gltf "p" :toggle-playback}
+               "u" :export-usd "g" :export-gltf "r" :export-png "p" :toggle-playback}
    :enscape {"f" :toggle-camera "k" :record-keyframe "1" :overcast "2" :clear
-             "u" :export-usd "g" :export-gltf "p" :toggle-playback}})
+             "u" :export-usd "g" :export-gltf "r" :export-png "p" :toggle-playback}})
 
-(declare toggle-camera-mode! record-keyframe! download-usda! download-glb!
+(declare toggle-camera-mode! record-keyframe! download-usda! download-glb! download-png!
          download-blob! play-timeline! pause-timeline!)
 
 (defn- editable-target? [e]
@@ -341,6 +342,7 @@
     :clear (do (swap! state assoc :weather "clear") (recompute-scene!) (mark-changed!))
     :export-usd (download-usda!)
     :export-gltf (download-glb!)
+    :export-png (download-png!)
     :toggle-playback (if (:playing? @state) (pause-timeline!) (play-timeline!))
     nil))
 
@@ -505,6 +507,18 @@
   (let [bytes (gltf-export/scene->glb (current-scene))
         blob (js/Blob. #js [bytes] #js {:type "model/gltf-binary"})]
     (download-blob! blob "scene.glb")))
+(defn- download-png! []
+  (let [canvas (.getElementById js/document "viewport")
+        filename (str (-> (:project-name @state) .toLowerCase (string/replace #"[^a-z0-9]+" "-") (string/replace #"(^-|-$)" "")) ".png")]
+    (swap! state assoc :render-export-status :rendering)
+    (apply-camera!)
+    (js/requestAnimationFrame
+     (fn [] (.toBlob canvas
+                     (fn [blob]
+                       (if blob
+                         (do (download-blob! blob filename) (swap! state assoc :render-export-status :exported))
+                         (swap! state assoc :render-export-status :failed)))
+                     "image/png")))))
 
 ;; ── mount / view ──
 
@@ -623,15 +637,16 @@
      [:option {:value "enscape"} "Enscape"]]
     [:p {:class "am-shortcut-hint"}
      (case (:interaction-profile @state)
-       :twinmotion "M camera · K keyframe · P play · 1/2 weather · U/G export"
-       :lumion "F camera · P keyframe · K play · 1/2 weather · U/G export"
-       "F camera · K keyframe · P play · 1/2 weather · U/G export")]
+       :twinmotion "M camera · K keyframe · P play · 1/2 weather · R PNG · U/G scene"
+       :lumion "F camera · P keyframe · K play · 1/2 weather · R PNG · U/G scene"
+       "F camera · K keyframe · P play · 1/2 weather · R PNG · U/G scene")]
     [preset-field "Weather" weather-options :weather]
     [preset-field "Terrain" terrain-options :terrain]
     [preset-field "Post FX" postfx-options :postfx]
     [preset-field "Vegetation" vegetation-options :vegetation]
     [:div {:class "am-export-row"}
      [camera-mode-button]
+     [btn "Export PNG" (fn [_e] (download-png!)) "export-png"]
      [btn "Export USD" (fn [_e] (download-usda!)) "export-usd"]
      [btn "Export glTF" (fn [_e] (download-glb!)) "export-gltf"]]]
    {:surface :thick :elevation :flat}])
@@ -676,7 +691,7 @@
   ;; found unreliable in this Chromium build (see test/render/verify_m2_render
   ;; docstring) and there is no other externally-observable signal that a
   ;; preset change actually reached (state) and re-rendered.
-  (let [{:keys [weather terrain postfx vegetation interaction-profile camera-mode fly timeline selected-keyframe playhead playing? render-ir webgpu-ctx selected-element building project-revision save-status]} @state]
+  (let [{:keys [weather terrain postfx vegetation interaction-profile camera-mode fly timeline selected-keyframe playhead playing? render-ir webgpu-ctx selected-element building project-revision save-status render-export-status]} @state]
     [:span {:id "debug-state" :style {:display "none"}}
      (js/JSON.stringify (clj->js {:weather weather :terrain terrain :postfx postfx :vegetation vegetation
                                    :interactionProfile (name interaction-profile)
@@ -684,6 +699,7 @@
                                    :elementCount (count (:elements (bim/find-storey building 3)))
                                    :selectedElement selected-element
                                    :projectVersion project/current-version :projectRevision project-revision :saveStatus (name save-status)
+                                   :renderExportStatus (name render-export-status)
                                    :rendererBackend (name (:backend webgpu-ctx :webgpu))
                                    :keyframeCount (count timeline) :selectedKeyframe selected-keyframe :keyframeTimes (mapv :t timeline) :playhead playhead :playing playing?
                                    :renderEye (get-in render-ir [:globals :eye])}))]))
