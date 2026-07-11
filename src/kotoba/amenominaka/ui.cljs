@@ -596,13 +596,14 @@
   ;; found unreliable in this Chromium build (see test/render/verify_m2_render
   ;; docstring) and there is no other externally-observable signal that a
   ;; preset change actually reached (state) and re-rendered.
-  (let [{:keys [weather terrain postfx vegetation camera-mode fly timeline playhead playing? render-ir selected-element building project-revision save-status]} @state]
+  (let [{:keys [weather terrain postfx vegetation camera-mode fly timeline playhead playing? render-ir webgpu-ctx selected-element building project-revision save-status]} @state]
     [:span {:id "debug-state" :style {:display "none"}}
      (js/JSON.stringify (clj->js {:weather weather :terrain terrain :postfx postfx :vegetation vegetation
                                    :cameraMode (name camera-mode) :flyPos (:pos fly)
                                    :elementCount (count (:elements (bim/find-storey building 3)))
                                    :selectedElement selected-element
                                    :projectVersion project/current-version :projectRevision project-revision :saveStatus (name save-status)
+                                   :rendererBackend (name (:backend webgpu-ctx :webgpu))
                                    :keyframeCount (count timeline) :playhead playhead :playing playing?
                                    :renderEye (get-in render-ir [:globals :eye])}))]))
 
