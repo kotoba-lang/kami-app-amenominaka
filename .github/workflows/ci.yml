@@ -28,6 +28,11 @@ jobs:
         with: {repository: kotoba-lang/materialx, path: materialx}
       - uses: actions/checkout@v4
         with: {repository: kotoba-lang/webgpu, path: webgpu}
+      - name: Checkout webgpu local-root graph
+        run: |
+          for repo in wgsl sprite-gpu sprite2d sky shaders render-shaders scene2d gpu webgl dance physics fsm netsync pipelines level host playwright cartpole-math; do
+            git clone --depth 1 "https://github.com/kotoba-lang/${repo}.git" "${repo}"
+          done
       - uses: actions/checkout@v4
         with: {repository: kotoba-lang/atmosphere, path: atmosphere}
       - uses: actions/checkout@v4
@@ -86,6 +91,11 @@ jobs:
         with: {repository: kotoba-lang/materialx, path: materialx}
       - uses: actions/checkout@v4
         with: {repository: kotoba-lang/webgpu, path: webgpu}
+      - name: Checkout webgpu local-root graph
+        run: |
+          for repo in wgsl sprite-gpu sprite2d sky shaders render-shaders scene2d gpu webgl dance physics fsm netsync pipelines level host playwright cartpole-math; do
+            git clone --depth 1 "https://github.com/kotoba-lang/${repo}.git" "${repo}"
+          done
       - uses: actions/checkout@v4
         with: {repository: kotoba-lang/atmosphere, path: atmosphere}
       - uses: actions/checkout@v4
