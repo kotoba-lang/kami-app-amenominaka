@@ -116,7 +116,7 @@
            :building (sample-building) :selected-element 4 :next-element-id 5
            :project-id "quarry-walk-lodge" :project-name "Quarry Walk Lodge" :project-revision 0 :save-status :clean
            :render-export-status :idle
-           :video-export-status :idle :video-recorder nil
+           :video-export-status :idle :video-recorder nil :video-fps 30 :video-bitrate-mbps 8
            :building-history [] :building-future []
            :interaction-profile :twinmotion
            :camera-mode :orbit
@@ -468,7 +468,8 @@
         (apply-timeline-at! t')
         (js/requestAnimationFrame (fn [] (timeline-loop! now))))
       (do (swap! state assoc :playing? false)
-          (reset! timeline-loop-running? false)))))
+          (reset! timeline-loop-running? false)
+          (when (= :recording (:video-export-status @state)) (toggle-video-recording!))))))
 
 (defn- play-timeline! []
   (let [{:keys [timeline playhead]} @state]
@@ -526,11 +527,12 @@
     (when (= "recording" (.-state recorder)) (.stop recorder))
     (let [canvas (.getElementById js/document "viewport")]
       (if (and canvas (.-captureStream canvas) (exists? js/MediaRecorder))
-        (let [stream (.captureStream canvas 30)
+        (let [fps (:video-fps @state) bitrate (* 1000000 (:video-bitrate-mbps @state))
+              stream (.captureStream canvas fps)
               mime (cond (.isTypeSupported js/MediaRecorder "video/webm;codecs=vp9") "video/webm;codecs=vp9"
                          (.isTypeSupported js/MediaRecorder "video/webm;codecs=vp8") "video/webm;codecs=vp8"
                          :else "video/webm")
-              recorder (js/MediaRecorder. stream #js {:mimeType mime :videoBitsPerSecond 8000000})
+              recorder (js/MediaRecorder. stream #js {:mimeType mime :videoBitsPerSecond bitrate})
               chunks (array)]
           (set! (.-ondataavailable recorder) #(when (pos? (.-size (.-data %))) (.push chunks (.-data %))))
           (set! (.-onstop recorder)
@@ -543,7 +545,10 @@
                   (swap! state assoc :video-export-status :exported :video-recorder nil)))
           (.start recorder 250)
           (swap! state assoc :video-export-status :recording :video-recorder recorder)
-          (when (seq (:timeline @state)) (play-timeline!)))
+          (when (seq (:timeline @state))
+            (swap! state assoc :playhead 0.0)
+            (apply-timeline-at! 0.0)
+            (play-timeline!)))
         (swap! state assoc :video-export-status :unsupported)))))
 
 ;; ── mount / view ──
@@ -670,6 +675,13 @@
     [preset-field "Terrain" terrain-options :terrain]
     [preset-field "Post FX" postfx-options :postfx]
     [preset-field "Vegetation" vegetation-options :vegetation]
+    [:label {:for "video-fps"} "Video frame rate"]
+    [:select {:id "video-fps" :value (:video-fps @state)
+              :on-change #(swap! state assoc :video-fps (js/parseInt (.. % -target -value)))}
+     [:option {:value 24} "24 fps"] [:option {:value 30} "30 fps"] [:option {:value 60} "60 fps"]]
+    [:label {:for "video-bitrate"} "Video bitrate (Mbps)"]
+    [:input {:id "video-bitrate" :type "number" :min 1 :max 50 :step 1 :value (:video-bitrate-mbps @state)
+             :on-change #(swap! state assoc :video-bitrate-mbps (-> (js/parseInt (.. % -target -value)) (max 1) (min 50)))}]
     [:div {:class "am-export-row"}
      [camera-mode-button]
      [btn "Export PNG" (fn [_e] (download-png!)) "export-png"]
@@ -719,7 +731,7 @@
   ;; found unreliable in this Chromium build (see test/render/verify_m2_render
   ;; docstring) and there is no other externally-observable signal that a
   ;; preset change actually reached (state) and re-rendered.
-  (let [{:keys [weather terrain postfx vegetation interaction-profile camera-mode fly timeline selected-keyframe playhead playing? render-ir webgpu-ctx selected-element building project-revision save-status render-export-status video-export-status]} @state]
+  (let [{:keys [weather terrain postfx vegetation interaction-profile camera-mode fly timeline selected-keyframe playhead playing? render-ir webgpu-ctx selected-element building project-revision save-status render-export-status video-export-status video-fps video-bitrate-mbps]} @state]
     [:span {:id "debug-state" :style {:display "none"}}
      (js/JSON.stringify (clj->js {:weather weather :terrain terrain :postfx postfx :vegetation vegetation
                                    :interactionProfile (name interaction-profile)
@@ -729,6 +741,7 @@
                                    :projectVersion project/current-version :projectRevision project-revision :saveStatus (name save-status)
                                    :renderExportStatus (name render-export-status)
                                    :videoExportStatus (name video-export-status)
+                                   :videoFps video-fps :videoBitrateMbps video-bitrate-mbps
                                    :rendererBackend (name (:backend webgpu-ctx :webgpu))
                                    :keyframeCount (count timeline) :selectedKeyframe selected-keyframe :keyframeTimes (mapv :t timeline) :playhead playhead :playing playing?
                                    :renderEye (get-in render-ir [:globals :eye])}))]))
