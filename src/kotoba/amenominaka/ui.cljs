@@ -116,6 +116,7 @@
            :building (sample-building) :selected-element 4 :next-element-id 5
            :project-id "quarry-walk-lodge" :project-name "Quarry Walk Lodge" :project-revision 0 :save-status :clean
            :render-export-status :idle
+           :video-export-status :idle :video-recorder nil
            :building-history [] :building-future []
            :interaction-profile :twinmotion
            :camera-mode :orbit
@@ -325,7 +326,7 @@
    :enscape {"f" :toggle-camera "k" :record-keyframe "1" :overcast "2" :clear
              "u" :export-usd "g" :export-gltf "r" :export-png "p" :toggle-playback}})
 
-(declare toggle-camera-mode! record-keyframe! download-usda! download-glb! download-png!
+(declare toggle-camera-mode! record-keyframe! download-usda! download-glb! download-png! toggle-video-recording!
          download-blob! play-timeline! pause-timeline!)
 
 (defn- editable-target? [e]
@@ -520,6 +521,31 @@
                          (swap! state assoc :render-export-status :failed)))
                      "image/png")))))
 
+(defn- toggle-video-recording! []
+  (if-let [recorder (:video-recorder @state)]
+    (when (= "recording" (.-state recorder)) (.stop recorder))
+    (let [canvas (.getElementById js/document "viewport")]
+      (if (and canvas (.-captureStream canvas) (exists? js/MediaRecorder))
+        (let [stream (.captureStream canvas 30)
+              mime (cond (.isTypeSupported js/MediaRecorder "video/webm;codecs=vp9") "video/webm;codecs=vp9"
+                         (.isTypeSupported js/MediaRecorder "video/webm;codecs=vp8") "video/webm;codecs=vp8"
+                         :else "video/webm")
+              recorder (js/MediaRecorder. stream #js {:mimeType mime :videoBitsPerSecond 8000000})
+              chunks (array)]
+          (set! (.-ondataavailable recorder) #(when (pos? (.-size (.-data %))) (.push chunks (.-data %))))
+          (set! (.-onstop recorder)
+                (fn []
+                  (doseq [track (array-seq (.getTracks stream))] (.stop track))
+                  (download-blob! (js/Blob. chunks #js {:type mime})
+                                  (str (-> (:project-name @state) .toLowerCase
+                                           (string/replace #"[^a-z0-9]+" "-")
+                                           (string/replace #"(^-|-$)" "")) ".webm"))
+                  (swap! state assoc :video-export-status :exported :video-recorder nil)))
+          (.start recorder 250)
+          (swap! state assoc :video-export-status :recording :video-recorder recorder)
+          (when (seq (:timeline @state)) (play-timeline!)))
+        (swap! state assoc :video-export-status :unsupported)))))
+
 ;; ── mount / view ──
 
 (defn- on-canvas-ref [node]
@@ -647,6 +673,8 @@
     [:div {:class "am-export-row"}
      [camera-mode-button]
      [btn "Export PNG" (fn [_e] (download-png!)) "export-png"]
+     [btn (if (= :recording (:video-export-status @state)) "Stop Video" "Record WebM")
+      (fn [_e] (toggle-video-recording!)) "export-video"]
      [btn "Export USD" (fn [_e] (download-usda!)) "export-usd"]
      [btn "Export glTF" (fn [_e] (download-glb!)) "export-gltf"]]]
    {:surface :thick :elevation :flat}])
@@ -691,7 +719,7 @@
   ;; found unreliable in this Chromium build (see test/render/verify_m2_render
   ;; docstring) and there is no other externally-observable signal that a
   ;; preset change actually reached (state) and re-rendered.
-  (let [{:keys [weather terrain postfx vegetation interaction-profile camera-mode fly timeline selected-keyframe playhead playing? render-ir webgpu-ctx selected-element building project-revision save-status render-export-status]} @state]
+  (let [{:keys [weather terrain postfx vegetation interaction-profile camera-mode fly timeline selected-keyframe playhead playing? render-ir webgpu-ctx selected-element building project-revision save-status render-export-status video-export-status]} @state]
     [:span {:id "debug-state" :style {:display "none"}}
      (js/JSON.stringify (clj->js {:weather weather :terrain terrain :postfx postfx :vegetation vegetation
                                    :interactionProfile (name interaction-profile)
@@ -700,6 +728,7 @@
                                    :selectedElement selected-element
                                    :projectVersion project/current-version :projectRevision project-revision :saveStatus (name save-status)
                                    :renderExportStatus (name render-export-status)
+                                   :videoExportStatus (name video-export-status)
                                    :rendererBackend (name (:backend webgpu-ctx :webgpu))
                                    :keyframeCount (count timeline) :selectedKeyframe selected-keyframe :keyframeTimes (mapv :t timeline) :playhead playhead :playing playing?
                                    :renderEye (get-in render-ir [:globals :eye])}))]))
