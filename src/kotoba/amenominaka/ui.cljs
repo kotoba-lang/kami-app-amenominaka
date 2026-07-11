@@ -115,6 +115,7 @@
            :building (sample-building) :selected-element 4 :next-element-id 5
            :project-id "quarry-walk-lodge" :project-name "Quarry Walk Lodge" :project-revision 0 :save-status :clean
            :building-history [] :building-future []
+           :interaction-profile :twinmotion
            :camera-mode :orbit
            :camera {:azimuth 0.785 :distance 64.0 :height 55.0}
            :fly {:pos [0.0 5.0 0.0] :yaw 0.0 :pitch 0.0}
@@ -312,11 +313,46 @@
   {"w" :forward "s" :backward "a" :left "d" :right
    " " :up "shift" :down})
 
+(def ^:private profile-shortcuts
+  {:twinmotion {"m" :toggle-camera "k" :record-keyframe "1" :overcast "2" :clear
+                "u" :export-usd "g" :export-gltf "p" :toggle-playback}
+   :lumion {"f" :toggle-camera "p" :record-keyframe "1" :overcast "2" :clear
+            "u" :export-usd "g" :export-gltf "k" :toggle-playback}
+   :d5-render {"f" :toggle-camera "k" :record-keyframe "1" :overcast "2" :clear
+               "u" :export-usd "g" :export-gltf "p" :toggle-playback}
+   :enscape {"f" :toggle-camera "k" :record-keyframe "1" :overcast "2" :clear
+             "u" :export-usd "g" :export-gltf "p" :toggle-playback}})
+
+(declare toggle-camera-mode! record-keyframe! download-usda! download-glb!
+         play-timeline! pause-timeline!)
+
+(defn- editable-target? [e]
+  (let [target (.-target e)
+        tag (some-> target .-tagName .toLowerCase)]
+    (or (= tag "input") (= tag "textarea") (= tag "select")
+        (true? (.-isContentEditable target)))))
+
+(defn- execute-profile-command! [command]
+  (case command
+    :toggle-camera (toggle-camera-mode!)
+    :record-keyframe (record-keyframe!)
+    :overcast (do (swap! state assoc :weather "overcast") (recompute-scene!) (mark-changed!))
+    :clear (do (swap! state assoc :weather "clear") (recompute-scene!) (mark-changed!))
+    :export-usd (download-usda!)
+    :export-gltf (download-glb!)
+    :toggle-playback (if (:playing? @state) (pause-timeline!) (play-timeline!))
+    nil))
+
 (defn- on-keydown [e]
-  (when (= (:camera-mode @state) :fly)
-    (when-let [action (key->action (.toLowerCase (.-key e)))]
-      (.preventDefault e)
-      (swap! state update :fly-keys conj action))))
+  (when-not (editable-target? e)
+    (let [key (.toLowerCase (.-key e))
+          command (get-in profile-shortcuts [(:interaction-profile @state) key])]
+      (if command
+        (do (.preventDefault e) (execute-profile-command! command))
+        (when (= (:camera-mode @state) :fly)
+          (when-let [action (key->action key)]
+            (.preventDefault e)
+            (swap! state update :fly-keys conj action)))))))
 
 (defn- on-keyup [e]
   (when-let [action (key->action (.toLowerCase (.-key e)))]
@@ -557,6 +593,20 @@
   [shape/panel
    [:div {:class "am-env-panel"}
     [:h3 "Environment"]
+    [:label {:for "interaction-profile"} "Interaction profile"]
+    [:select {:id "interaction-profile"
+              :value (name (:interaction-profile @state))
+              :on-change #(swap! state assoc :interaction-profile
+                                 (keyword (.. % -target -value)))}
+     [:option {:value "twinmotion"} "Twinmotion"]
+     [:option {:value "lumion"} "Lumion"]
+     [:option {:value "d5-render"} "D5 Render"]
+     [:option {:value "enscape"} "Enscape"]]
+    [:p {:class "am-shortcut-hint"}
+     (case (:interaction-profile @state)
+       :twinmotion "M camera · K keyframe · P play · 1/2 weather · U/G export"
+       :lumion "F camera · P keyframe · K play · 1/2 weather · U/G export"
+       "F camera · K keyframe · P play · 1/2 weather · U/G export")]
     [preset-field "Weather" weather-options :weather]
     [preset-field "Terrain" terrain-options :terrain]
     [preset-field "Post FX" postfx-options :postfx]
@@ -596,9 +646,10 @@
   ;; found unreliable in this Chromium build (see test/render/verify_m2_render
   ;; docstring) and there is no other externally-observable signal that a
   ;; preset change actually reached (state) and re-rendered.
-  (let [{:keys [weather terrain postfx vegetation camera-mode fly timeline playhead playing? render-ir webgpu-ctx selected-element building project-revision save-status]} @state]
+  (let [{:keys [weather terrain postfx vegetation interaction-profile camera-mode fly timeline playhead playing? render-ir webgpu-ctx selected-element building project-revision save-status]} @state]
     [:span {:id "debug-state" :style {:display "none"}}
      (js/JSON.stringify (clj->js {:weather weather :terrain terrain :postfx postfx :vegetation vegetation
+                                   :interactionProfile (name interaction-profile)
                                    :cameraMode (name camera-mode) :flyPos (:pos fly)
                                    :elementCount (count (:elements (bim/find-storey building 3)))
                                    :selectedElement selected-element
