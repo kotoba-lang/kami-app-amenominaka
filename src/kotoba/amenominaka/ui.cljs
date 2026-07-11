@@ -45,7 +45,8 @@
   DOM-shape-preservation reasoning, is copied from
   `murakumo-studio/src/murakumo_studio/ui.cljs`'s real, live-reproduced
   fix for the identical bug."
-  (:require [reagent.core :as r]
+  (:require [cljs.reader :as reader]
+            [reagent.core :as r]
             [reagent.dom.client :as rdomc]
             [appkit.core :as shape]
             [kotoba-ui.core :as ui]
@@ -110,6 +111,8 @@
 
 (defonce state
   (r/atom {:weather "overcast" :terrain "plains" :postfx "nintendo" :vegetation ["grass"]
+           :building (sample-building) :selected-element 4 :next-element-id 5
+           :building-history [] :building-future []
            :camera-mode :orbit
            :camera {:azimuth 0.785 :distance 64.0 :height 55.0}
            :fly {:pos [0.0 5.0 0.0] :yaw 0.0 :pitch 0.0}
@@ -153,8 +156,8 @@
         (when webgpu-ctx (webgpu/draw! webgpu-ctx ir'))))))
 
 (defn- current-scene []
-  (let [{:keys [weather terrain postfx vegetation]} @state]
-    (amenominaka-scene/compose {:building (sample-building)
+  (let [{:keys [weather terrain postfx vegetation building]} @state]
+    (amenominaka-scene/compose {:building building
                                  :weather weather :terrain terrain :postfx postfx
                                  :vegetation vegetation})))
 
@@ -164,6 +167,57 @@
         pivot [(nth target 0) (nth target 2)]]
     (swap! state assoc :render-ir base-ir :pivot pivot)
     (apply-camera!)))
+
+;; ── semantic scene editing ──
+
+(defn- current-storey [] (bim/find-storey (:building @state) 3))
+(defn- scene-elements [] (:elements (current-storey)))
+(defn- selected-element []
+  (first (filter #(= (:selected-element @state) (:id %)) (scene-elements))))
+(defn- commit-building! [building]
+  (swap! state (fn [s] (-> s
+                            (update :building-history conj (:building s))
+                            (assoc :building building :building-future []))))
+  (recompute-scene!))
+(defn- add-wall! []
+  (let [id (:next-element-id @state) y (* 1.5 (- id 4))
+        wall (bim/wall {:id id :name (str "Wall " id) :start [0 y 0] :end [8 y 0]
+                        :thickness 0.2 :height 3.5 :material "Concrete"})]
+    (swap! state assoc :selected-element id)
+    (swap! state update :next-element-id inc)
+    (commit-building! (bim/add-element (:building @state) 3 wall))))
+(defn- delete-selected! []
+  (when-let [e (selected-element)]
+    (commit-building! (bim/delete-element (:building @state) 3 (:id e)))
+    (swap! state assoc :selected-element (some-> (first (scene-elements)) :id))))
+(defn- update-selected! [field value]
+  (when-let [e (selected-element)]
+    (let [[[x y z] [x1 _ _]] (get-in e [:geometry :axis] [[0 0 0] [8 0 0]])
+          length (if (= field :length) value (- x1 x))
+          height (if (= field :height) value (get-in e [:geometry :profile :height] 3.5))
+          thickness (if (= field :thickness) value (get-in e [:geometry :profile :thickness] 0.2))
+          name (if (= field :name) value (:name e))
+          updated (bim/wall {:id (:id e) :name name :start [x y z] :end [(+ x length) y z]
+                             :height height :thickness thickness :material "Concrete"})]
+      (commit-building! (bim/update-element (:building @state) 3 (:id e) (constantly updated))))))
+(defn- undo-building! []
+  (when-let [previous (peek (:building-history @state))]
+    (swap! state (fn [s] (assoc s :building previous
+                                :building-history (pop (:building-history s))
+                                :building-future (conj (:building-future s) (:building s)))))
+    (recompute-scene!)))
+(defn- redo-building! []
+  (when-let [next (peek (:building-future @state))]
+    (swap! state (fn [s] (assoc s :building next
+                                :building-future (pop (:building-future s))
+                                :building-history (conj (:building-history s) (:building s)))))
+    (recompute-scene!)))
+(defn- save-project! []
+  (.setItem js/localStorage "amenominaka.project" (pr-str (:building @state))))
+(defn- load-project! []
+  (when-let [stored (.getItem js/localStorage "amenominaka.project")]
+    (let [building (reader/read-string stored)]
+      (when (amenominaka-scene/bim-project? building) (commit-building! building)))))
 
 ;; ── mouse/wheel orbit camera (M2's own gap: "interactive orbit/fly
 ;; camera controls are not implemented" — closed here (orbit), extended
@@ -396,6 +450,49 @@
      (fn [_e] (toggle-camera-mode!))
      "toggle-camera-mode"]))
 
+(defn- scene-editor-panel []
+  (let [selected (selected-element)
+        length (get-in selected [:quantities :length-m] 0)
+        height (get-in selected [:geometry :profile :height] 0)
+        thickness (get-in selected [:geometry :profile :thickness] 0)]
+    [shape/panel
+     [:div {:class "am-scene-editor"}
+      [:h3 "Scene Hierarchy"]
+      [:div {:id "scene-tree"}
+       (for [e (scene-elements)]
+         ^{:key (:id e)}
+         [:button {:type "button" :class (str (ui/class-name :button)
+                                               (when (= (:id e) (:selected-element @state)) " selected"))
+                   :on-click #(swap! state assoc :selected-element (:id e))}
+          (str (name (:kind e)) " · " (:name e))])]
+      [:div {:class "am-scene-actions"}
+       [btn "Add Wall" (fn [_] (add-wall!)) "add-scene-wall"]
+       [btn "Delete" (fn [_] (delete-selected!)) "delete-scene-element"]]
+      (when selected
+        [:div {:class "am-property-editor"}
+         [:label "Name"]
+         [:input {:id "element-name" :default-value (:name selected)
+                  :key (str "name-" (:id selected) "-" (:name selected))
+                  :on-blur #(update-selected! :name (.. % -target -value))}]
+         [:label "Length (m)"]
+         [:input {:id "element-length" :type "number" :step 0.1 :default-value length
+                  :key (str "length-" (:id selected) "-" length)
+                  :on-blur #(update-selected! :length (js/parseFloat (.. % -target -value)))}]
+         [:label "Height (m)"]
+         [:input {:id "element-height" :type "number" :step 0.1 :default-value height
+                  :key (str "height-" (:id selected) "-" height)
+                  :on-blur #(update-selected! :height (js/parseFloat (.. % -target -value)))}]
+         [:label "Thickness (m)"]
+         [:input {:id "element-thickness" :type "number" :step 0.05 :default-value thickness
+                  :key (str "thickness-" (:id selected) "-" thickness)
+                  :on-blur #(update-selected! :thickness (js/parseFloat (.. % -target -value)))}]])
+      [:div {:class "am-scene-actions"}
+       [btn "Undo" (fn [_] (undo-building!)) "undo-scene"]
+       [btn "Redo" (fn [_] (redo-building!)) "redo-scene"]
+       [btn "Save" (fn [_] (save-project!)) "save-project"]
+       [btn "Load" (fn [_] (load-project!)) "load-project"]]]
+     {:surface :thick :elevation :flat}]))
+
 (defn- env-panel []
   [shape/panel
    [:div {:class "am-env-panel"}
@@ -439,10 +536,12 @@
   ;; found unreliable in this Chromium build (see test/render/verify_m2_render
   ;; docstring) and there is no other externally-observable signal that a
   ;; preset change actually reached (state) and re-rendered.
-  (let [{:keys [weather terrain postfx vegetation camera-mode fly timeline playhead playing? render-ir]} @state]
+  (let [{:keys [weather terrain postfx vegetation camera-mode fly timeline playhead playing? render-ir selected-element building]} @state]
     [:span {:id "debug-state" :style {:display "none"}}
      (js/JSON.stringify (clj->js {:weather weather :terrain terrain :postfx postfx :vegetation vegetation
                                    :cameraMode (name camera-mode) :flyPos (:pos fly)
+                                   :elementCount (count (:elements (bim/find-storey building 3)))
+                                   :selectedElement selected-element
                                    :keyframeCount (count timeline) :playhead playhead :playing playing?
                                    :renderEye (get-in render-ir [:globals :eye])}))]))
 
@@ -451,6 +550,7 @@
    [ui/nav-bar "kami-app-amenominaka" {:trailing nil}]
    [:div {:class "am-body"}
     [:div {:class "am-sidebar"}
+     [scene-editor-panel]
      [env-panel]
      [timeline-panel]]
     [viewport]]

@@ -71,6 +71,33 @@
 (defn- select-weather-clear! [page]
   (.selectOption page "#field-weather" "clear"))
 
+(defn- debug-element-count [page]
+  (-> (debug-state page) (.then (fn [text] (.-elementCount (js/JSON.parse text))))))
+
+(defn- verify-scene-editor! [page]
+  (-> (.click page "#add-scene-wall")
+      (.then (fn [] (poll-truthy
+                      #(-> (debug-element-count page) (.then (fn [n] (when (= n 2) n))))
+                      10000)))
+      (.then (fn [count-after-add]
+               (when-not (= count-after-add 2) (fail! "Add Wall did not update semantic scene"))
+               (.fill page "#element-length" "6.5")))
+      (.then (fn [] (.press page "#element-length" "Tab")))
+      (.then (fn [] (.click page "#delete-scene-element")))
+      (.then (fn [] (poll-truthy
+                      #(-> (debug-element-count page) (.then (fn [n] (when (= n 1) n))))
+                      10000)))
+      (.then (fn [count-after-delete]
+               (when-not (= count-after-delete 1) (fail! "Delete did not update semantic scene"))
+               (.click page "#undo-scene")))
+      (.then (fn [] (poll-truthy
+                      #(-> (debug-element-count page) (.then (fn [n] (when (= n 2) n))))
+                      10000)))
+      (.then (fn [count-after-undo]
+               (if (= count-after-undo 2)
+                 (report! {:sceneEditor true :add 2 :delete 1 :undo 2})
+                 (fail! "Undo did not restore semantic scene"))))))
+
 (defn- canvas-screenshot [page]
   (let [canvas (.locator page "#viewport")]
     (.screenshot canvas #js {:type "png"})))
@@ -118,6 +145,7 @@
                                              (if (and after (.includes after "\"clear\""))
                                                (report! {:ok true :initial initial :afterSelectWeatherClear after})
                                                (fail! (str "changing #field-weather to clear did not flow through to #debug-state (controlled-select workaround may be broken); last seen: " after)))))
+                                    (.then (fn [] (verify-scene-editor! page)))
                                     (.then (fn [] (verify-orbit-camera page)))))))))))
       (.then (fn []
                (let [shot (.join path screenshot-dir "m5-ui-screenshot.png")]
