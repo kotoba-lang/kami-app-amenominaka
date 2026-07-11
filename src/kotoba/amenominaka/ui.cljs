@@ -52,6 +52,7 @@
             [kotoba-ui.core :as ui]
             [bim]
             [kotoba.amenominaka.scene :as amenominaka-scene]
+            [kotoba.amenominaka.project :as project]
             [kotoba.amenominaka.render-ir :as render-ir]
             [kotoba.amenominaka.usd-export :as usd-export]
             [kotoba.amenominaka.gltf-export :as gltf-export]
@@ -112,6 +113,7 @@
 (defonce state
   (r/atom {:weather "overcast" :terrain "plains" :postfx "nintendo" :vegetation ["grass"]
            :building (sample-building) :selected-element 4 :next-element-id 5
+           :project-id "quarry-walk-lodge" :project-name "Quarry Walk Lodge" :project-revision 0 :save-status :clean
            :building-history [] :building-future []
            :camera-mode :orbit
            :camera {:azimuth 0.785 :distance 64.0 :height 55.0}
@@ -174,11 +176,27 @@
 (defn- scene-elements [] (:elements (current-storey)))
 (defn- selected-element []
   (first (filter #(= (:selected-element @state) (:id %)) (scene-elements))))
+(defn- project-document []
+  (let [{:keys [project-id project-name building weather terrain postfx vegetation camera-mode camera fly timeline]} @state]
+    (project/document {:id project-id :name project-name :building building
+                       :environment {:weather weather :terrain terrain :postfx postfx :vegetation vegetation}
+                       :camera {:mode camera-mode :orbit camera :fly fly}
+                       :timeline timeline :updated-at (:project-revision @state)})))
+(defn- persist-project! []
+  (let [primary "amenominaka.project.v2" backup "amenominaka.project.backup"
+        serialized (pr-str (project-document)) old (.getItem js/localStorage primary)]
+    (when old (.setItem js/localStorage backup old))
+    (.setItem js/localStorage primary serialized)
+    (swap! state assoc :save-status :saved)))
+(defn- mark-changed! []
+  (swap! state (fn [s] (-> s (update :project-revision inc) (assoc :save-status :dirty))))
+  (persist-project!))
 (defn- commit-building! [building]
   (swap! state (fn [s] (-> s
                             (update :building-history conj (:building s))
                             (assoc :building building :building-future []))))
-  (recompute-scene!))
+  (recompute-scene!)
+  (mark-changed!))
 (defn- add-wall! []
   (let [id (:next-element-id @state) y (* 1.5 (- id 4))
         wall (bim/wall {:id id :name (str "Wall " id) :start [0 y 0] :end [8 y 0]
@@ -205,19 +223,41 @@
     (swap! state (fn [s] (assoc s :building previous
                                 :building-history (pop (:building-history s))
                                 :building-future (conj (:building-future s) (:building s)))))
-    (recompute-scene!)))
+    (recompute-scene!)
+    (mark-changed!)))
 (defn- redo-building! []
   (when-let [next (peek (:building-future @state))]
     (swap! state (fn [s] (assoc s :building next
                                 :building-future (pop (:building-future s))
                                 :building-history (conj (:building-history s) (:building s)))))
+    (recompute-scene!)
+    (mark-changed!)))
+(defn- save-project! [] (mark-changed!))
+(defn- apply-document! [doc]
+  (let [doc (project/migrate doc) env (:project/environment doc) cam (:project/camera doc)
+        building (:project/building doc)]
+    (swap! state assoc :project-id (:project/id doc) :project-name (:project/name doc)
+           :project-revision (:project/updated-at doc) :save-status :loaded
+           :building building :weather (:weather env "overcast") :terrain (:terrain env "plains")
+           :postfx (:postfx env "nintendo") :vegetation (:vegetation env ["grass"])
+           :camera-mode (:mode cam :orbit) :camera (:orbit cam (:camera @state)) :fly (:fly cam (:fly @state))
+           :timeline (:project/timeline doc) :building-history [] :building-future []
+           :selected-element (some-> (first (:elements (bim/find-storey building 3))) :id))
     (recompute-scene!)))
-(defn- save-project! []
-  (.setItem js/localStorage "amenominaka.project" (pr-str (:building @state))))
 (defn- load-project! []
-  (when-let [stored (.getItem js/localStorage "amenominaka.project")]
-    (let [building (reader/read-string stored)]
-      (when (amenominaka-scene/bim-project? building) (commit-building! building)))))
+  (when-let [stored (or (.getItem js/localStorage "amenominaka.project.v2")
+                        (.getItem js/localStorage "amenominaka.project.backup")
+                        (.getItem js/localStorage "amenominaka.project"))]
+    (try (apply-document! (reader/read-string stored))
+         (catch :default _
+           (when-let [backup (.getItem js/localStorage "amenominaka.project.backup")]
+             (apply-document! (reader/read-string backup)))))))
+(defn- export-project! []
+  (let [a (.createElement js/document "a") blob (js/Blob. #js [(pr-str (project-document))] #js {:type "application/edn"})]
+    (set! (.-href a) (.createObjectURL js/URL blob)) (set! (.-download a) (str (:project-id @state) ".amenominaka.edn")) (.click a)))
+(defn- import-project! [event]
+  (when-let [file (aget (.. event -target -files) 0)]
+    (-> (.text file) (.then #(apply-document! (reader/read-string %))))))
 
 ;; ── mouse/wheel orbit camera (M2's own gap: "interactive orbit/fly
 ;; camera controls are not implemented" — closed here (orbit), extended
@@ -442,13 +482,29 @@
                       (if (= value-key :vegetation)
                         (swap! state assoc :vegetation [v])
                         (swap! state assoc value-key v)))
-                    (recompute-scene!))}]]))
+                    (recompute-scene!)
+                    (mark-changed!))}]]))
 
 (defn- camera-mode-button []
   (let [mode (:camera-mode @state)]
     [btn (str "Camera: " (if (= mode :fly) "Fly (WASD)" "Orbit"))
      (fn [_e] (toggle-camera-mode!))
      "toggle-camera-mode"]))
+
+(def tool-apps
+  [["Modeler" "https://kotoba-lang.github.io/kami-app-modeler/"]
+   ["Animator" "https://kotoba-lang.github.io/kami-app-animator/"]
+   ["CAD" "https://kotoba-lang.github.io/kami-app-cad/"]
+   ["BIM Editor" "https://kotoba-lang.github.io/kami-app-bim-editor/"]
+   ["Sculpt" "https://kotoba-lang.github.io/kami-app-sculpt/"]])
+
+(defn- tools-panel []
+  [shape/panel
+   [:div {:class "am-tools-panel"}
+    [:h3 "Creative Tools"]
+    (for [[label href] tool-apps]
+      ^{:key label} [:a {:class (ui/class-name :button) :href href} label])]
+   {:surface :thick :elevation :flat}])
 
 (defn- scene-editor-panel []
   (let [selected (selected-element)
@@ -490,7 +546,11 @@
        [btn "Undo" (fn [_] (undo-building!)) "undo-scene"]
        [btn "Redo" (fn [_] (redo-building!)) "redo-scene"]
        [btn "Save" (fn [_] (save-project!)) "save-project"]
-       [btn "Load" (fn [_] (load-project!)) "load-project"]]]
+       [btn "Load" (fn [_] (load-project!)) "load-project"]
+       [btn "Export Project" (fn [_] (export-project!)) "export-project"]
+       [btn "Import Project" (fn [_] (.click (.getElementById js/document "import-project-file"))) "import-project"]
+       [:input {:id "import-project-file" :type "file" :accept ".edn,.amenominaka.edn" :style {:display "none"}
+                :on-change import-project!}]]]
      {:surface :thick :elevation :flat}]))
 
 (defn- env-panel []
@@ -536,12 +596,13 @@
   ;; found unreliable in this Chromium build (see test/render/verify_m2_render
   ;; docstring) and there is no other externally-observable signal that a
   ;; preset change actually reached (state) and re-rendered.
-  (let [{:keys [weather terrain postfx vegetation camera-mode fly timeline playhead playing? render-ir selected-element building]} @state]
+  (let [{:keys [weather terrain postfx vegetation camera-mode fly timeline playhead playing? render-ir selected-element building project-revision save-status]} @state]
     [:span {:id "debug-state" :style {:display "none"}}
      (js/JSON.stringify (clj->js {:weather weather :terrain terrain :postfx postfx :vegetation vegetation
                                    :cameraMode (name camera-mode) :flyPos (:pos fly)
                                    :elementCount (count (:elements (bim/find-storey building 3)))
                                    :selectedElement selected-element
+                                   :projectVersion project/current-version :projectRevision project-revision :saveStatus (name save-status)
                                    :keyframeCount (count timeline) :playhead playhead :playing playing?
                                    :renderEye (get-in render-ir [:globals :eye])}))]))
 
@@ -550,6 +611,7 @@
    [ui/nav-bar "kami-app-amenominaka" {:trailing nil}]
    [:div {:class "am-body"}
     [:div {:class "am-sidebar"}
+     [tools-panel]
      [scene-editor-panel]
      [env-panel]
      [timeline-panel]]
