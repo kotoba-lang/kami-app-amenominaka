@@ -11,30 +11,45 @@
  ;; be checkout-present too (a real CI break found+fixed this session: the
  ;; local orgs/kotoba-lang/webgpu checkout was stale and didn't yet declare
  ;; these when M2 was first implemented).
- :deps {io.github.kotoba-lang/bim                {:local/root "../bim"}
-        io.github.kotoba-lang/atmosphere-scene   {:local/root "../kami-atmosphere-scene"}
-        io.github.kotoba-lang/vegetation-scene   {:local/root "../kami-vegetation-scene"}
-        io.github.kotoba-lang/terrain-scene      {:local/root "../kami-terrain-scene"}
-        io.github.kotoba-lang/postfx-scene       {:local/root "../kami-postfx-scene"}
-        io.github.kotoba-lang/usd                {:local/root "../org-openusd"}
-        io.github.kotoba-lang/materialx          {:local/root "../org-materialx"}
-        io.github.kotoba-lang/webgpu             {:local/root "../webgpu"}
-        io.github.kotoba-lang/atmosphere         {:local/root "../atmosphere"}
-        io.github.kotoba-lang/org-w3-webgpu      {:local/root "../org-w3-webgpu"}
-        io.github.kotoba-lang/expr               {:local/root "../expr"}
+ :deps {io.github.kotoba-lang/bim                {:git/url "https://github.com/kotoba-lang/bim.git"
+                                     :git/sha "7f4f4b8f03114107a2aa7febf8ee5ad2cf90efc3"}
+        io.github.kotoba-lang/atmosphere-scene   {:git/url "https://github.com/kotoba-lang/kami-atmosphere-scene.git"
+                                     :git/sha "198f7114bcba1d4fe9b43d4ef7e8a3e6d87dbe2e"}
+        io.github.kotoba-lang/vegetation-scene   {:git/url "https://github.com/kotoba-lang/kami-vegetation-scene.git"
+                                     :git/sha "2b654ace05eba67334568f77b9998676c5fbadb5"}
+        io.github.kotoba-lang/terrain-scene      {:git/url "https://github.com/kotoba-lang/kami-terrain-scene.git"
+                                     :git/sha "f5d361dd50d52e3aa80fe8085ff15051ede21f8d"}
+        io.github.kotoba-lang/postfx-scene       {:git/url "https://github.com/kotoba-lang/kami-postfx-scene.git"
+                                     :git/sha "e9c63df697e4af1d3562fd3eff0ec8a9de0eff7c"}
+        io.github.kotoba-lang/usd                {:git/url "https://github.com/kotoba-lang/org-openusd.git"
+                                     :git/sha "2f1f2b4e3b5cf48413751c1ea5e70b0e898eef76"}
+        io.github.kotoba-lang/materialx          {:git/url "https://github.com/kotoba-lang/org-materialx.git"
+                                     :git/sha "710b77dc9f758a59992c859634abeb23c10290eb"}
+        io.github.kotoba-lang/webgpu             {:git/url "https://github.com/kotoba-lang/webgpu.git"
+                                     :git/sha "88597ebb6d33f435e62f9e2c3847189e2482a6be"}
+        io.github.kotoba-lang/atmosphere         {:git/url "https://github.com/kotoba-lang/atmosphere.git"
+                                     :git/sha "c26483c612422c927a967492f9a31b4c3def3614"}
+        io.github.kotoba-lang/org-w3-webgpu      {:git/url "https://github.com/kotoba-lang/org-w3-webgpu.git"
+                                     :git/sha "05b7b9914e28cf53ab7ba73e2e0040f6de68e616"}
+        io.github.kotoba-lang/expr               {:git/url "https://github.com/kotoba-lang/expr.git"
+                                     :git/sha "3bf48bff59aa1fb1ea48a0b84103d63fd2b507ff"}
         ;; M5 (ADR-2607100100): the org's default UI/UX design system
         ;; (ADR-2607022800) — appkit is the only DIRECT dep needed; it
         ;; transitively pulls kotoba-ui -> {shitsuke, liquid-glass-ui} via
         ;; their own deps.edn :local/root chains (confirmed working
         ;; end-to-end in murakumo-studio/local-manimani, both real deployed
         ;; apps on this exact stack) — no need to list those three here too.
-        io.github.kotoba-lang/appkit             {:local/root "../appkit"}
+        io.github.kotoba-lang/appkit             {:git/url "https://github.com/kotoba-lang/appkit.git"
+                                     :git/sha "03b1c5373817229060f3fac9e41e97775c320997"}
         ;; M7 (ADR-2607100100): glTF export. org-khronos-gltf's own deps.edn
         ;; pulls org-khronos-glb via a :git/sha coordinate (not :local/root),
         ;; so tools.deps resolves it itself — no sibling checkout needed here.
-        io.github.kotoba-lang/org-khronos-gltf   {:local/root "../org-khronos-gltf"}
-        io.github.kotoba-lang/html               {:local/root "../html"}
-        io.github.kotoba-lang/css                {:local/root "../css"}}
+        io.github.kotoba-lang/org-khronos-gltf   {:git/url "https://github.com/kotoba-lang/org-khronos-gltf.git"
+                                     :git/sha "aad1e919227b895acb5a20605853906fa464de44"}
+        io.github.kotoba-lang/html               {:git/url "https://github.com/kotoba-lang/html.git"
+                                     :git/sha "aa57f2730c87b7c2752151ed1a5f2e402c2ac71e"}
+        io.github.kotoba-lang/css                {:git/url "https://github.com/kotoba-lang/css.git"
+                                     :git/sha "7fc8167c4fb97a92b7c21545e6a92a86cc58a9ca"}}
  :aliases
  {:test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner
