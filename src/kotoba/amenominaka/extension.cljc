@@ -36,7 +36,7 @@
   therefore implement extension lifecycle WITHOUT any Pregel-cell
   mapping — that mapping is retired as a concept, not deferred as an
   implementation gap, per ADR-2607100100's M3 addendum."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 ;; ── IExt lifecycle (mirrors omni.ext.IExt) ────────────────────────────────
 

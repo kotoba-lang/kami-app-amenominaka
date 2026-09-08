@@ -1,7 +1,7 @@
 (ns kotoba.amenominaka.extension-test
   "Ported from kami-nv-compat's amenominaka.extension-test (ADR-2607100100 M3)."
   (:require [clojure.test :refer [deftest is testing]]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [kotoba.amenominaka.extension :as e]))
 
 (deftest parser-corner-cases
