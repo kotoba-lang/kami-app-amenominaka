@@ -46,7 +46,7 @@
   `murakumo-studio/src/murakumo_studio/ui.cljs`'s real, live-reproduced
   fix for the identical bug."
   (:require [cljs.reader :as reader]
-            [clojure.string :as string]
+            [kotoba.lang.text :as string]
             [reagent.core :as r]
             [reagent.dom.client :as rdomc]
             [appkit.core :as shape]
