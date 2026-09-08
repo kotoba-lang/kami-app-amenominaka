@@ -38,7 +38,7 @@
   (UsdMtlx `material:binding` conventions are nontrivial enough that
   guessing at them risks a binding that's silently wrong in a viewer;
   left as a real, documented gap rather than a guessed implementation)."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [usd.core :as usd]
             [materialx.core :as mx]))
 
