@@ -151,9 +151,9 @@ palette. Vegetation/postfx are not bridged — no placement data exists for
 either in M0's scene EDN.
 
 **Verified in a real browser**, not just structurally: `public/m2-demo.html`
-(compiled via `shadow-cljs compile m2-demo`) composes the M0 sample
+(compiled via `amu compile --target wasm32-browser m2-demo`) composes the M0 sample
 scene, draws one real frame via `kami.webgpu/init!`+`draw!`, and
-`nbb -cp test/render test/render/verify_m2_render.cljk` drives a full
+`kbb --backend sci -cp test/render test/render/verify_m2_render.cljk` drives a full
 (non-headless-shell) Chromium via Playwright — reusing the technique
 `kotoba-lang/wasm-webcomponent` proved in ADR-2607078000 Addendum 8,
 ported to nbb rather than copied as `.mjs` — to confirm `navigator.gpu`
@@ -167,7 +167,7 @@ render-IR carries a static framed camera only).
 
 Before speculatively building `wgsl` `@compute` GPU-side instancing (the
 ADR's original M4 direction), `public/m4-stress-demo.html` +
-`nbb -cp test/render test/render/verify_m4_stress.cljk` measure whether
+`kbb --backend sci -cp test/render test/render/verify_m4_stress.cljk` measure whether
 M2's CPU-authored instancing actually hits a wall — a grid of N walls at
 several scales, drawn 60 real frames in a real browser, reporting
 avg/p95/max frame time. It found one: **the real wall was in
@@ -296,7 +296,7 @@ still targets them) — the exact workaround, DOM-shape-preservation
 reasoning included, ported from `murakumo-studio/src/murakumo_studio/
 ui.cljs`'s real, independently-reproduced fix for the identical bugs.
 
-**Static CSS**: `scripts/gen_kotoba_ui_css.cljk` (`bb ui-css`) calls
+**Static CSS**: `scripts/gen_kotoba_ui_css.cljk` (`kbb -M:ui-css`) calls
 `liquid-glass.tokens/css-variables`+`resolve-dark-tokens` and
 `liquid-glass.style/component-css` — pure functions over EDN rule data,
 no build step — and writes `public/vendor/kotoba-ui.css` (referenced via
@@ -305,7 +305,7 @@ own CSS-gen script. This app is always-dark (a real-time 3D viewport has
 no light-mode use case), so Tier A tokens are emitted directly rather than
 gated on `prefers-color-scheme`.
 
-**Real-browser verification** (`nbb -cp test/render
+**Real-browser verification** (`kbb --backend sci -cp test/render
 test/render/verify_m5_ui.cljk`) drives the actual compiled `shell.html` in
 a full (non-headless-shell) Chromium and asserts, against the live app —
 no mocks: the env panel's four `<select>`s + `#viewport` canvas exist
