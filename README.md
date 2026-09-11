@@ -114,7 +114,7 @@ so glTF gets both correct outward normals *and* correct front-facing
 winding together.
 
 Wired into the M5 UI shell (an "Export glTF" button next to "Export
-USD"). Real-browser verified (`test/render/verify_m7_gltf.cljs`): clicks
+USD"). Real-browser verified (`test/render/verify_m7_gltf.cljk`): clicks
 the real button, captures the real browser download (not a mock), and
 parses the downloaded bytes with `org-khronos-gltf`'s own `parse-gltf` —
 confirming valid GLB magic, the expected 5-node hierarchy, exactly one
@@ -153,7 +153,7 @@ either in M0's scene EDN.
 **Verified in a real browser**, not just structurally: `public/m2-demo.html`
 (compiled via `shadow-cljs compile m2-demo`) composes the M0 sample
 scene, draws one real frame via `kami.webgpu/init!`+`draw!`, and
-`nbb -cp test/render test/render/verify_m2_render.cljs` drives a full
+`nbb -cp test/render test/render/verify_m2_render.cljk` drives a full
 (non-headless-shell) Chromium via Playwright — reusing the technique
 `kotoba-lang/wasm-webcomponent` proved in ADR-2607078000 Addendum 8,
 ported to nbb rather than copied as `.mjs` — to confirm `navigator.gpu`
@@ -167,7 +167,7 @@ render-IR carries a static framed camera only).
 
 Before speculatively building `wgsl` `@compute` GPU-side instancing (the
 ADR's original M4 direction), `public/m4-stress-demo.html` +
-`nbb -cp test/render test/render/verify_m4_stress.cljs` measure whether
+`nbb -cp test/render test/render/verify_m4_stress.cljk` measure whether
 M2's CPU-authored instancing actually hits a wall — a grid of N walls at
 several scales, drawn 60 real frames in a real browser, reporting
 avg/p95/max frame time. It found one: **the real wall was in
@@ -296,7 +296,7 @@ still targets them) — the exact workaround, DOM-shape-preservation
 reasoning included, ported from `murakumo-studio/src/murakumo_studio/
 ui.cljs`'s real, independently-reproduced fix for the identical bugs.
 
-**Static CSS**: `scripts/gen_kotoba_ui_css.clj` (`bb ui-css`) calls
+**Static CSS**: `scripts/gen_kotoba_ui_css.cljk` (`bb ui-css`) calls
 `liquid-glass.tokens/css-variables`+`resolve-dark-tokens` and
 `liquid-glass.style/component-css` — pure functions over EDN rule data,
 no build step — and writes `public/vendor/kotoba-ui.css` (referenced via
@@ -306,7 +306,7 @@ no light-mode use case), so Tier A tokens are emitted directly rather than
 gated on `prefers-color-scheme`.
 
 **Real-browser verification** (`nbb -cp test/render
-test/render/verify_m5_ui.cljs`) drives the actual compiled `shell.html` in
+test/render/verify_m5_ui.cljk`) drives the actual compiled `shell.html` in
 a full (non-headless-shell) Chromium and asserts, against the live app —
 no mocks: the env panel's four `<select>`s + `#viewport` canvas exist
 after mount; a `#debug-state` DOM node (same idiom as M2/M4's `#out`,
@@ -344,7 +344,7 @@ mode switches away. Toggling into fly mode hands off smoothly from
 wherever the orbit camera currently is (seeds `:pos`/`:yaw`/`:pitch` from
 the current `:eye`/`:target`, no jump cut).
 
-**Real-browser verification** (`test/render/verify_m8_fly_camera.cljs`):
+**Real-browser verification** (`test/render/verify_m8_fly_camera.cljk`):
 toggles to fly mode and back (both directions confirmed via
 `#debug-state`), holds a real `w` keydown for 600ms (Playwright's
 `page.keyboard.down`/`up` — genuine `keydown`/`keyup` events, not a
@@ -384,7 +384,7 @@ or scrubbing stops. The scrubber (`#timeline-scrub`, a plain
 `<input type="range">`) lets you manually preview any point on the path
 while paused.
 
-**Real-browser verification** (`test/render/verify_m9_timeline.cljs`):
+**Real-browser verification** (`test/render/verify_m9_timeline.cljk`):
 records two keyframes at genuinely different positions (moves via a real
 held `d` keydown in fly mode between them), scrubs to the exact midpoint
 and confirms the render-IR's `:eye` is the arithmetic mean of the two

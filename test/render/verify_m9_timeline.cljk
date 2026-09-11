@@ -1,7 +1,7 @@
 (ns verify-m9-timeline
   "M9 (ADR-2607100100) real-browser omni.timeline (camera-path) real-
   browser verification, run via nbb FROM THIS REPO'S ROOT:
-    nbb -cp test/render test/render/verify_m9_timeline.cljs
+    nbb -cp test/render test/render/verify_m9_timeline.cljk
   Loads the shadow-cljs-compiled `public/shell.html` in a full (non-
   headless-shell) Chromium via Playwright and asserts, against the REAL
   live app — no mocks:

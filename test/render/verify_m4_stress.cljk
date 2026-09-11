@@ -1,6 +1,6 @@
 (ns verify-m4-stress
   "M4 investigation (ADR-2607100100 D6-b), run via nbb FROM THIS REPO'S
-  ROOT: nbb -cp test/render test/render/verify_m4_stress.cljs
+  ROOT: nbb -cp test/render test/render/verify_m4_stress.cljk
   Loads public/m4-stress-demo.html at several `?n=` instance-count
   scales in a real (full, non-headless-shell) Chromium via Playwright,
   reads the reported avg/p95/max frame time + fps from `#out`, and

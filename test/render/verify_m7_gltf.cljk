@@ -1,7 +1,7 @@
 (ns verify-m7-gltf
   "M7 (ADR-2607100100) real-browser glTF-export verification, run via nbb
   FROM THIS REPO'S ROOT:
-    nbb -cp test/render:../org-khronos-gltf/src:../org-khronos-glb/src test/render/verify_m7_gltf.cljs
+    nbb -cp test/render:../org-khronos-gltf/src:../org-khronos-glb/src test/render/verify_m7_gltf.cljk
   Loads the shadow-cljs-compiled `public/shell.html`, clicks the real
   \"Export glTF\" button (`#export-gltf`), captures the REAL browser
   download it triggers (Playwright's `download` event — the button does a
