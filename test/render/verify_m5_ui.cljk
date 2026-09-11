@@ -1,7 +1,7 @@
 (ns verify-m5-ui
   "M5 (ADR-2607100100) real-browser UI-shell verification, run via nbb FROM
   THIS REPO'S ROOT:
-    nbb -cp test/render test/render/verify_m5_ui.cljs
+    nbb -cp test/render test/render/verify_m5_ui.cljk
   Loads the shadow-cljs-compiled `public/shell.html`
   (kotoba.amenominaka.ui/init!) in a full (non-headless-shell) Chromium via
   Playwright and asserts, all against the REAL live app (no mocks):

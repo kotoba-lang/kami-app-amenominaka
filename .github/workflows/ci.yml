@@ -123,7 +123,7 @@ jobs:
       # M7 (ADR-2607100100): glTF export. org-khronos-glb is org-khronos-gltf's
       # OWN :git/sha dep (tools.deps resolves it for `clojure -M:test` above),
       # but nbb needs an explicit -cp entry pointing at a real checkout — see
-      # test/render/verify_m7_gltf.cljs's docstring.
+      # test/render/verify_m7_gltf.cljk's docstring.
       - uses: actions/checkout@v4
         with: {repository: kotoba-lang/org-khronos-gltf, path: org-khronos-gltf}
       - uses: actions/checkout@v4
@@ -141,7 +141,7 @@ jobs:
         working-directory: kami-app-amenominaka
       - run: npx shadow-cljs compile m2-demo
         working-directory: kami-app-amenominaka
-      - run: npx nbb -cp test/render test/render/verify_m2_render.cljs
+      - run: npx nbb -cp test/render test/render/verify_m2_render.cljk
         working-directory: kami-app-amenominaka
       - uses: actions/upload-artifact@v4
         if: always()
@@ -152,18 +152,18 @@ jobs:
       # M4 (ADR-2607100100 D6-b): perf-regression guard, not just a
       # one-time investigation — fails if instance-buffer caching in
       # kotoba-lang/webgpu's draw! regresses back to O(instance count)
-      # per-frame cost (see test/render/verify_m4_stress.cljs).
+      # per-frame cost (see test/render/verify_m4_stress.cljk).
       - run: npx shadow-cljs compile m4-stress-demo
         working-directory: kami-app-amenominaka
-      - run: npx nbb -cp test/render test/render/verify_m4_stress.cljs
+      - run: npx nbb -cp test/render test/render/verify_m4_stress.cljk
         working-directory: kami-app-amenominaka
       # M5 (ADR-2607100100): interactive UI shell real-browser verification
-      # (see test/render/verify_m5_ui.cljs docstring).
+      # (see test/render/verify_m5_ui.cljk docstring).
       - run: bb ui-css
         working-directory: kami-app-amenominaka
       - run: npx shadow-cljs compile shell
         working-directory: kami-app-amenominaka
-      - run: npx nbb -cp test/render test/render/verify_m5_ui.cljs
+      - run: npx nbb -cp test/render test/render/verify_m5_ui.cljk
         working-directory: kami-app-amenominaka
       - uses: actions/upload-artifact@v4
         if: always()
@@ -174,15 +174,15 @@ jobs:
       # M7 (ADR-2607100100): glTF export real-browser verification — clicks
       # the real "Export glTF" button, captures the real download, parses it
       # with org-khronos-gltf's own parser (see verify_m7_gltf.cljs docstring).
-      - run: npx nbb -cp "test/render:../org-khronos-gltf/src:../org-khronos-glb/src" test/render/verify_m7_gltf.cljs
+      - run: npx nbb -cp "test/render:../org-khronos-gltf/src:../org-khronos-glb/src" test/render/verify_m7_gltf.cljk
         working-directory: kami-app-amenominaka
       # M8 (ADR-2607100100): fly-camera real-browser verification — toggles
       # camera mode, holds a real 'w' keydown, confirms real movement + a
-      # changed rendered frame (see test/render/verify_m8_fly_camera.cljs).
-      - run: npx nbb -cp test/render test/render/verify_m8_fly_camera.cljs
+      # changed rendered frame (see test/render/verify_m8_fly_camera.cljk).
+      - run: npx nbb -cp test/render test/render/verify_m8_fly_camera.cljk
         working-directory: kami-app-amenominaka
       # M9 (ADR-2607100100): omni.timeline (camera-path) real-browser
       # verification — records real keyframes, scrubs, plays back over
-      # real wall-clock time (see test/render/verify_m9_timeline.cljs).
-      - run: npx nbb -cp test/render test/render/verify_m9_timeline.cljs
+      # real wall-clock time (see test/render/verify_m9_timeline.cljk).
+      - run: npx nbb -cp test/render test/render/verify_m9_timeline.cljk
         working-directory: kami-app-amenominaka

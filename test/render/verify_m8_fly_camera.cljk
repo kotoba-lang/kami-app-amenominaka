@@ -1,7 +1,7 @@
 (ns verify-m8-fly-camera
   "M8 (ADR-2607100100) real-browser fly-camera verification, run via nbb
   FROM THIS REPO'S ROOT:
-    nbb -cp test/render test/render/verify_m8_fly_camera.cljs
+    nbb -cp test/render test/render/verify_m8_fly_camera.cljk
   Loads the shadow-cljs-compiled `public/shell.html` in a full (non-
   headless-shell) Chromium via Playwright and asserts, against the REAL
   live app — no mocks:

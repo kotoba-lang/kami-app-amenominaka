@@ -9,4 +9,4 @@
  :tasks
  {ui-css
   {:doc "Generate the static kotoba-ui (liquid-glass) CSS into public/vendor/."
-   :task (load-file "scripts/gen_kotoba_ui_css.clj")}}}
+   :task (load-file "scripts/gen_kotoba_ui_css.cljk")}}}
