@@ -3,7 +3,7 @@
   THIS REPO'S ROOT (paths below are cwd-relative, not `*file*`-relative —
   clj-kondo doesn't know nbb's `*file*` var, so this sidesteps a false
   \"Unresolved symbol\" lint error rather than suppressing it):
-    nbb -cp test/render test/render/verify_m2_render.cljk
+    kbb --backend sci -cp test/render test/render/verify_m2_render.cljk
   Loads the shadow-cljs-compiled `public/m2-demo.html` (kotoba.amenominaka.
   render-demo/init! — composes the M0 sample scene, bridges it via
   kotoba.amenominaka.render-ir, draws one real frame via kami.webgpu) in a
