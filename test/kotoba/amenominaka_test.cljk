@@ -1,6 +1,6 @@
 (ns kotoba.amenominaka-test
   (:require [kotoba.lang.text :as str]
-            [clojure.test :refer [deftest is testing]]
+            [kotoba.test :refer [deftest is testing]]
             [kotoba.amenominaka :as amenominaka]))
 
 (defn- non-blank-string? [x]

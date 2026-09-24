@@ -1,5 +1,5 @@
 (ns kotoba.amenominaka.project-test
-  (:require [clojure.test :refer [deftest is]] [bim]
+  (:require [kotoba.test :refer [deftest is]] [bim]
             [kotoba.amenominaka.project :as project]))
 
 (defn building []

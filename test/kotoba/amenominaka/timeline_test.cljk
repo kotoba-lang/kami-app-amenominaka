@@ -1,5 +1,5 @@
 (ns kotoba.amenominaka.timeline-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [kotoba.amenominaka.timeline :as timeline]))
 
 (deftest empty-timeline-test
