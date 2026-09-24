@@ -5,7 +5,7 @@
 ;; with plain babashka. This app is always-dark (a real-time 3D viewport
 ;; doesn't have a light-mode use case), so Tier A emits dark tokens
 ;; directly on :root rather than gating on prefers-color-scheme.
-(require '[clojure.java.io :as io]
+(require '[kotoba.io :as io]
          '[liquid-glass.tokens :as t]
          '[liquid-glass.style :as s])
 
