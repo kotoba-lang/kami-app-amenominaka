@@ -1,6 +1,6 @@
 (ns kotoba.amenominaka.application-test
   "Ported from kami-nv-compat's amenominaka.application-test (ADR-2607100100 M3)."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [kotoba.amenominaka.application :as app]
             [kotoba.amenominaka.extension :as ext]))
 

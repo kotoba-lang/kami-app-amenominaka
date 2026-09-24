@@ -1,5 +1,5 @@
 (ns kotoba.amenominaka.gltf-export-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [bim]
             [kotoba.amenominaka.scene :as amenominaka-scene]
             [kotoba.amenominaka.usd-export :as usd-export]

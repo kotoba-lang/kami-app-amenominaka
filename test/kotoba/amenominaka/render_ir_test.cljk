@@ -1,5 +1,5 @@
 (ns kotoba.amenominaka.render-ir-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [bim]
             [atmosphere]
             [kami.webgpu.ir :as ir]

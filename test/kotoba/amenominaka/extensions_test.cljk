@@ -1,5 +1,5 @@
 (ns kotoba.amenominaka.extensions-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [kotoba.amenominaka.application :as app]
             [kotoba.amenominaka.extensions :as extensions]))
 
