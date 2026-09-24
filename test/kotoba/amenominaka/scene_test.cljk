@@ -1,6 +1,6 @@
 (ns kotoba.amenominaka.scene-test
   (:require [kotoba.test :refer [deftest is testing]]
-            [clojure.edn :as edn]
+            [kotoba.lang.edn :as edn]
             [bim]
             [kotoba.amenominaka.scene :as amenominaka-scene]))
 
