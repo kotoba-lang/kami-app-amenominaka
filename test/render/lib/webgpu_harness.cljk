@@ -1,6 +1,6 @@
 (ns lib.webgpu-harness
   "M2 (ADR-2607100100) real-browser WebGPU verification harness, run via
-  nbb (ClojureScript-on-Node) — not hand-written JS (CLAUDE.md: Node-side
+  nbb (ClojureScript-on-Node) — not hand-written JS (AGENTS.md: Node-side
   verification/test harnesses are written in nbb, not `.mjs`/`.cjs`).
 
   Ports the *technique* proven in `kotoba-lang/wasm-webcomponent`'s
